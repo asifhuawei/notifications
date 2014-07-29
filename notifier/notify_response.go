@@ -1,4 +1,4 @@
-package handlers
+package notifier
 
 import (
     "encoding/json"
@@ -29,13 +29,13 @@ type NotifyResponse []map[string]string
 type NotifyFailureResponse map[string][]string
 
 func (generator NotifyResponseGenerator) GenerateResponse(uaaUsers map[string]uaa.User,
-    params NotifyParams, space, organization, token string,
+    options Options, space, organization, token string,
     w http.ResponseWriter, loadSpace bool) {
 
     env := config.NewEnvironment()
     messages := NotifyResponse{}
 
-    subjectTemplate, err := generator.LoadSubjectTemplate(params.Subject, NewTemplateManager())
+    subjectTemplate, err := generator.LoadSubjectTemplate(options.Subject, NewTemplateManager())
     if err != nil {
         Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
         return
@@ -49,7 +49,7 @@ func (generator NotifyResponseGenerator) GenerateResponse(uaaUsers map[string]ua
 
     for userGUID, uaaUser := range uaaUsers {
         if len(uaaUser.Emails) > 0 {
-            context := NewMessageContext(uaaUser, params, env, space, organization,
+            context := NewMessageContext(uaaUser, options, env, space, organization,
                 token, generator.guidGenerator, plainTextTemplate, htmlTemplate, subjectTemplate)
 
             emailStatus := generator.SendMailToUser(context, generator.logger, generator.mailClient)

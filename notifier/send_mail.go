@@ -1,4 +1,4 @@
-package handlers
+package notifier
 
 import (
     "bytes"
@@ -52,7 +52,7 @@ type MessageContext struct {
     Organization           string
 }
 
-func NewMessageContext(user uaa.User, params NotifyParams,
+func NewMessageContext(user uaa.User, options Options,
     env config.Environment, space, organization, clientID string, guidGenerator GUIDGenerationFunc,
     plainTextEmailTemplate, htmlEmailTemplate, subjectEmailTemplate string) MessageContext {
 
@@ -62,26 +62,26 @@ func NewMessageContext(user uaa.User, params NotifyParams,
     }
 
     var kindDescription string
-    if params.KindDescription == "" {
-        kindDescription = params.Kind
+    if options.KindDescription == "" {
+        kindDescription = options.Kind
     } else {
-        kindDescription = params.KindDescription
+        kindDescription = options.KindDescription
     }
 
     var sourceDescription string
-    if params.SourceDescription == "" {
+    if options.SourceDescription == "" {
         sourceDescription = clientID
     } else {
-        sourceDescription = params.SourceDescription
+        sourceDescription = options.SourceDescription
     }
 
     return MessageContext{
         From:    env.Sender,
-        ReplyTo: params.ReplyTo,
+        ReplyTo: options.ReplyTo,
         To:      user.Emails[0],
-        Subject: params.Subject,
-        Text:    params.Text,
-        HTML:    params.HTML,
+        Subject: options.Subject,
+        Text:    options.Text,
+        HTML:    options.HTML,
         PlainTextEmailTemplate: plainTextEmailTemplate,
         HTMLEmailTemplate:      htmlEmailTemplate,
         SubjectEmailTemplate:   subjectEmailTemplate,

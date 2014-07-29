@@ -1,16 +1,15 @@
-package handlers_test
+package notifier_test
 
 import (
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/web/handlers"
-
+    "github.com/cloudfoundry-incubator/notifications/notifier"
     . "github.com/onsi/ginkgo"
     . "github.com/onsi/gomega"
 )
 
 var _ = Describe("EmailTemplateManager", func() {
-    var manager handlers.EmailTemplateManager
+    var manager notifier.EmailTemplateManager
 
     Describe("LoadEmailTemplate", func() {
         Context("when there are no template overrides", func() {

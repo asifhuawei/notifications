@@ -7,6 +7,7 @@ import (
     "strings"
 
     "github.com/PuerkitoBio/goquery"
+    "github.com/cloudfoundry-incubator/notifications/notifier"
 )
 
 type NotifyParams struct {
@@ -53,6 +54,19 @@ func (params *NotifyParams) parseRequestBody(body io.Reader) {
         if err != nil {
             panic(err)
         }
+    }
+}
+
+func (params *NotifyParams) ToOptions() notifier.Options {
+
+    return notifier.Options{
+        ReplyTo:           params.ReplyTo,
+        Subject:           params.Subject,
+        KindDescription:   params.KindDescription,
+        SourceDescription: params.SourceDescription,
+        Text:              params.Text,
+        HTML:              params.HTML,
+        Kind:              params.Kind,
     }
 }
 

@@ -1,4 +1,4 @@
-package handlers
+package notifier
 
 import (
     "encoding/json"
@@ -11,13 +11,26 @@ import (
     "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/cloudfoundry-incubator/notifications/mail"
     "github.com/dgrijalva/jwt-go"
+    "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 )
+
+type GUIDGenerationFunc func() (*uuid.UUID, error)
 
 type UAAInterface interface {
     uaa.GetClientTokenInterface
     uaa.SetTokenInterface
     uaa.UsersByIDsInterface
+}
+
+type Options struct {
+    ReplyTo           string
+    Subject           string
+    KindDescription   string
+    SourceDescription string
+    Text              string
+    HTML              string
+    Kind              string
 }
 
 type UAADownError struct {
@@ -78,18 +91,7 @@ func Error(w http.ResponseWriter, code int, errors []string) {
 
 func (helper NotifyHelper) NotifyServeHTTP(w http.ResponseWriter, req *http.Request,
     guid string, loadCCUsers func(spaceGuid, accessToken string) ([]cf.CloudControllerUser, error),
-    loadSpace bool) {
-
-    params, err := NewNotifyParams(req.Body)
-    if err != nil {
-        Error(w, 422, []string{"Request body could not be parsed"})
-        return
-    }
-
-    if !params.Validate() {
-        Error(w, 422, params.Errors)
-        return
-    }
+    loadSpace bool, options Options) {
 
     token, err := helper.uaaClient.GetClientToken()
     if err != nil {
@@ -152,7 +154,7 @@ func (helper NotifyHelper) NotifyServeHTTP(w http.ResponseWriter, req *http.Requ
     responseGenerator := NewNotifyResponseGenerator(helper.logger, helper.guidGenerator,
         helper.mailClient)
 
-    responseGenerator.GenerateResponse(uaaUsers, params, space,
+    responseGenerator.GenerateResponse(uaaUsers, options, space,
         organization, clientToken.Claims["client_id"].(string), w, loadSpace)
 }
 

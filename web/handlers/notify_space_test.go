@@ -170,5 +170,32 @@ Content-Transfer-Encoding: quoted-printable
                 "X-CF-Notification-ID: deadbeef-aabb-ccdd-eeff-001122334455",
             }))
         })
+
+        It("returns a error response when params are missing", func() {
+            body, err := json.Marshal(map[string]string{
+                "subject":            "Your instance is down",
+                "source_description": "MySQL Service",
+                "kind_description":   "Instance Alert",
+            })
+            if err != nil {
+                panic(err)
+            }
+            request, err = http.NewRequest("POST", "/spaces/space-001", bytes.NewBuffer(body))
+            if err != nil {
+                panic(err)
+            }
+            request.Header.Set("Authorization", "Bearer "+token)
+
+            handler.ServeHTTP(writer, request)
+
+            parsed := map[string][]string{}
+            err = json.Unmarshal(writer.Body.Bytes(), &parsed)
+            if err != nil {
+                panic(err)
+            }
+
+            Expect(parsed["errors"]).To(ContainElement(`"kind" is a required field`))
+            Expect(parsed["errors"]).To(ContainElement(`"text" or "html" fields must be supplied`))
+        })
     })
 })

@@ -1,11 +1,11 @@
-package handlers_test
+package notifier_test
 
 import (
     "os"
 
     "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/cloudfoundry-incubator/notifications/mail"
-    "github.com/cloudfoundry-incubator/notifications/web/handlers"
+    "github.com/cloudfoundry-incubator/notifications/notifier"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
     . "github.com/onsi/ginkgo"
@@ -14,13 +14,13 @@ import (
 
 var _ = Describe("MailSender", func() {
 
-    var mailSender handlers.MailSender
-    var context handlers.MessageContext
+    var mailSender notifier.MailSender
+    var context notifier.MessageContext
     var client mail.Client
 
     BeforeEach(func() {
         client = mail.Client{}
-        context = handlers.MessageContext{
+        context = notifier.MessageContext{
             From:      "banana man",
             ReplyTo:   "awesomeness",
             To:        "endless monkeys",
@@ -33,7 +33,7 @@ var _ = Describe("MailSender", func() {
             HTMLEmailTemplate:      "Banana preamble {{.HTML}} {{.Text}} {{.ClientID}} {{.MessageID}}",
             SubjectEmailTemplate:   "The Subject: {{.Subject}}",
         }
-        mailSender = handlers.NewMailSender(&client, context)
+        mailSender = notifier.NewMailSender(&client, context)
     })
 
     Describe("CompileBody", func() {
@@ -68,7 +68,7 @@ Content-Transfer-Encoding: quoted-printable
         Context("when no html is set", func() {
             It("only sends a plaintext of the email", func() {
                 context.HTML = ""
-                mailSender = handlers.NewMailSender(&client, context)
+                mailSender = notifier.NewMailSender(&client, context)
 
                 body, err := mailSender.CompileBody()
                 if err != nil {
@@ -90,7 +90,7 @@ Banana preamble User <supplied> "banana" text 3&3 4'4
         Context("when no text is set", func() {
             It("omits the plaintext portion of the email", func() {
                 context.Text = ""
-                mailSender = handlers.NewMailSender(&client, context)
+                mailSender = notifier.NewMailSender(&client, context)
 
                 body, err := mailSender.CompileBody()
                 if err != nil {
@@ -136,7 +136,7 @@ Content-Transfer-Encoding: quoted-printable
         var plainTextEmailTemplate, htmlEmailTemplate, subjectEmailTemplate string
         var user uaa.User
         var env config.Environment
-        var params handlers.NotifyParams
+        var options notifier.Options
 
         BeforeEach(func() {
             user = uaa.User{
@@ -150,7 +150,7 @@ Content-Transfer-Encoding: quoted-printable
             htmlEmailTemplate = "the html email template"
             subjectEmailTemplate = "the subject template"
 
-            params = handlers.NotifyParams{
+            options = notifier.Options{
                 ReplyTo:           "awesomeness",
                 Subject:           "the subject",
                 KindDescription:   "the kind description",
@@ -161,8 +161,8 @@ Content-Transfer-Encoding: quoted-printable
             }
         })
 
-        It("returns the appropriate MessageContext when all params are specified", func() {
-            messageContext := handlers.NewMessageContext(user, params, env, "the-space", "the-org",
+        It("returns the appropriate MessageContext when all options are specified", func() {
+            messageContext := notifier.NewMessageContext(user, options, env, "the-space", "the-org",
                 "the-client-ID", FakeGuidGenerator, plainTextEmailTemplate, htmlEmailTemplate, subjectEmailTemplate)
 
             guid, err := FakeGuidGenerator()
@@ -171,16 +171,16 @@ Content-Transfer-Encoding: quoted-printable
             }
 
             Expect(messageContext.From).To(Equal(os.Getenv("SENDER")))
-            Expect(messageContext.ReplyTo).To(Equal(params.ReplyTo))
+            Expect(messageContext.ReplyTo).To(Equal(options.ReplyTo))
             Expect(messageContext.To).To(Equal(user.Emails[0]))
-            Expect(messageContext.Subject).To(Equal(params.Subject))
-            Expect(messageContext.Text).To(Equal(params.Text))
-            Expect(messageContext.HTML).To(Equal(params.HTML))
+            Expect(messageContext.Subject).To(Equal(options.Subject))
+            Expect(messageContext.Text).To(Equal(options.Text))
+            Expect(messageContext.HTML).To(Equal(options.HTML))
             Expect(messageContext.PlainTextEmailTemplate).To(Equal(plainTextEmailTemplate))
             Expect(messageContext.HTMLEmailTemplate).To(Equal(htmlEmailTemplate))
             Expect(messageContext.SubjectEmailTemplate).To(Equal(subjectEmailTemplate))
-            Expect(messageContext.KindDescription).To(Equal(params.KindDescription))
-            Expect(messageContext.SourceDescription).To(Equal(params.SourceDescription))
+            Expect(messageContext.KindDescription).To(Equal(options.KindDescription))
+            Expect(messageContext.SourceDescription).To(Equal(options.SourceDescription))
             Expect(messageContext.ClientID).To(Equal("the-client-ID"))
             Expect(messageContext.MessageID).To(Equal(guid.String()))
             Expect(messageContext.Space).To(Equal("the-space"))
@@ -188,18 +188,18 @@ Content-Transfer-Encoding: quoted-printable
         })
 
         It("falls back to Kind if KindDescription is missing", func() {
-            params.KindDescription = ""
+            options.KindDescription = ""
 
-            messageContext := handlers.NewMessageContext(user, params, env, "the-space",
+            messageContext := notifier.NewMessageContext(user, options, env, "the-space",
                 "the-org", "the-client-ID", FakeGuidGenerator, plainTextEmailTemplate, htmlEmailTemplate, subjectEmailTemplate)
 
             Expect(messageContext.KindDescription).To(Equal("the-kind"))
         })
 
         It("falls back to clientID when SourceDescription is missing", func() {
-            params.SourceDescription = ""
+            options.SourceDescription = ""
 
-            messageContext := handlers.NewMessageContext(user, params, env, "the-space",
+            messageContext := notifier.NewMessageContext(user, options, env, "the-space",
                 "the-org", "the-client-ID", FakeGuidGenerator, plainTextEmailTemplate, htmlEmailTemplate, subjectEmailTemplate)
 
             Expect(messageContext.SourceDescription).To(Equal("the-client-ID"))

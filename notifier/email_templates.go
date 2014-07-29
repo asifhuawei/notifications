@@ -1,4 +1,4 @@
-package handlers
+package notifier
 
 import (
     "github.com/cloudfoundry-incubator/notifications/config"

@@ -1,17 +1,16 @@
-package handlers_test
+package notifier_test
 
 import (
     "bytes"
     "encoding/json"
     "errors"
-    "io/ioutil"
     "log"
     "net/http"
     "net/http/httptest"
     "strings"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
-    "github.com/cloudfoundry-incubator/notifications/web/handlers"
+    "github.com/cloudfoundry-incubator/notifications/notifier"
     "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
@@ -20,7 +19,7 @@ import (
 )
 
 var _ = Describe("NotifyHelper", func() {
-    var helper handlers.NotifyHelper
+    var helper notifier.NotifyHelper
     var fakeCC *FakeCloudController
     var logger *log.Logger
     var request *http.Request
@@ -29,6 +28,7 @@ var _ = Describe("NotifyHelper", func() {
     var writer *httptest.ResponseRecorder
     var token string
     var buffer *bytes.Buffer
+    var options notifier.Options
 
     BeforeEach(func() {
         tokenHeader := map[string]interface{}{
@@ -86,7 +86,7 @@ var _ = Describe("NotifyHelper", func() {
 
         mailClient = FakeMailClient{}
 
-        helper = handlers.NewNotifyHelper(fakeCC, logger, &fakeUAA, FakeGuidGenerator, &mailClient)
+        helper = notifier.NewNotifyHelper(fakeCC, logger, &fakeUAA, FakeGuidGenerator, &mailClient)
     })
 
     Describe("NofifyServeHTTP", func() {
@@ -98,58 +98,6 @@ var _ = Describe("NotifyHelper", func() {
                     cf.CloudControllerUser{Guid: userGUID},
                 }, nil
             }
-        })
-
-        Context("when the request is invalid", func() {
-            BeforeEach(func() {
-                requestBody, err := json.Marshal(map[string]string{
-                    "kind_description":   "Password reminder",
-                    "source_description": "Login system",
-                    "subject":            "Reset your password",
-                })
-
-                if err != nil {
-                    panic(err)
-                }
-
-                request, err = http.NewRequest("POST", "/users/user-123", bytes.NewReader(requestBody))
-                if err != nil {
-                    panic(err)
-                }
-            })
-
-            It("returns an error message", func() {
-                helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
-
-                parsed := map[string][]string{}
-                err := json.Unmarshal(writer.Body.Bytes(), &parsed)
-                if err != nil {
-                    panic(err)
-                }
-
-                Expect(parsed["errors"]).To(ContainElement(`"kind" is a required field`))
-                Expect(parsed["errors"]).To(ContainElement(`"text" or "html" fields must be supplied`))
-            })
-
-            Context("when the request body is missing", func() {
-                BeforeEach(func() {
-                    request.Body = ioutil.NopCloser(bytes.NewReader([]byte{}))
-                })
-
-                It("returns an error message", func() {
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
-
-                    parsed := map[string][]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &parsed)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    Expect(parsed["errors"]).To(ContainElement(`"kind" is a required field`))
-                    Expect(parsed["errors"]).To(ContainElement(`"text" or "html" fields must be supplied`))
-                })
-            })
-
         })
 
         Context("when the request is valid", func() {
@@ -170,12 +118,20 @@ var _ = Describe("NotifyHelper", func() {
                     panic(err)
                 }
                 request.Header.Set("Authorization", "Bearer "+token)
+
+                options = notifier.Options{
+                    Kind:              "forgot_password",
+                    KindDescription:   "Password reminder",
+                    SourceDescription: "Login system",
+                    Text:              "Please reset your password by clicking on this link...",
+                    HTML:              "<p>Please reset your password by clicking on this link...</p>",
+                }
             })
 
             Context("when the SMTP server fails to deliver the mail", func() {
                 It("returns a status indicating that delivery failed", func() {
                     mailClient.errorOnSend = true
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -191,7 +147,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when the SMTP server cannot be reached", func() {
                 It("returns a status indicating that the server is unavailable", func() {
                     mailClient.errorOnConnect = true
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -207,7 +163,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when UAA cannot be reached", func() {
                 It("returns a 502 status code", func() {
                     fakeUAA.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusBadGateway))
                     Expect(writer.Body.String()).To(ContainSubstring("{\"errors\":[\"UAA is unavailable\"]}"))
@@ -216,7 +172,7 @@ var _ = Describe("NotifyHelper", func() {
 
             Context("when UAA cannot find the user", func() {
                 It("returns that the user in the response with status notfound", func() {
-                    helper.NotifyServeHTTP(writer, request, "user-789", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-789", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
 
@@ -237,7 +193,7 @@ var _ = Describe("NotifyHelper", func() {
                         Emails: []string{},
                     }
 
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     response := []map[string]string{}
                     err := json.Unmarshal(writer.Body.Bytes(), &response)
@@ -253,7 +209,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when UAA causes some unknown error", func() {
                 It("returns a 502 status code", func() {
                     fakeUAA.ErrorForUserByID = errors.New("Boom!")
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusBadGateway))
                     Expect(writer.Body.String()).To(ContainSubstring("{\"errors\":[\"UAA Unknown Error: Boom!\"]}"))
@@ -271,7 +227,7 @@ var _ = Describe("NotifyHelper", func() {
                 })
 
                 It("logs the UUIDs of all recipients", func() {
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, true)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, true, options)
 
                     lines := strings.Split(buffer.String(), "\n")
 
@@ -280,7 +236,7 @@ var _ = Describe("NotifyHelper", func() {
                 })
 
                 It("returns necessary info in the response for the sent mail", func() {
-                    helper = handlers.NewNotifyHelper(fakeCC, logger, &fakeUAA, func() (*uuid.UUID, error) {
+                    helper = notifier.NewNotifyHelper(fakeCC, logger, &fakeUAA, func() (*uuid.UUID, error) {
                         guid, err := uuid.NewV4()
                         if err != nil {
                             panic(err)
@@ -288,7 +244,7 @@ var _ = Describe("NotifyHelper", func() {
                         return guid, nil
                     }, &mailClient)
 
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false)
+                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -305,33 +261,6 @@ var _ = Describe("NotifyHelper", func() {
 
                     Expect(parsed[1]["status"]).To(Equal("delivered"))
                     Expect(parsed[1]["notification_id"]).NotTo(Equal(parsed[0]["notification_id"]))
-                })
-            })
-
-            Context("when sending emails to a space", func() {
-                BeforeEach(func() {
-                    loadCCUsers = func(userGUID, accessToken string) ([]cf.CloudControllerUser, error) {
-                        return []cf.CloudControllerUser{
-                            cf.CloudControllerUser{Guid: "user-123"},
-                            cf.CloudControllerUser{Guid: "user-456"},
-                        }, nil
-                    }
-                    requestBody, err := json.Marshal(map[string]string{
-                        "kind":               "forgot_password",
-                        "kind_description":   "Password reminder",
-                        "source_description": "Login system",
-                        "text":               "Please reset your password by clicking on this link...",
-                        "html":               "<p>Please reset your password by clicking on this link...</p>",
-                    })
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    request, err = http.NewRequest("POST", "/space/space-001", bytes.NewReader(requestBody))
-                    if err != nil {
-                        panic(err)
-                    }
-                    request.Header.Set("Authorization", "Bearer "+token)
                 })
             })
         })
@@ -360,7 +289,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(handlers.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(notifier.UAADownError{}))
                 })
             })
 
@@ -370,7 +299,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(handlers.UAAGenericError{}))
+                    Expect(err).To(BeAssignableToTypeOf(notifier.UAAGenericError{}))
                 })
             })
 
@@ -380,7 +309,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(handlers.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(notifier.UAADownError{}))
                 })
             })
         })

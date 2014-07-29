@@ -1,19 +1,18 @@
-package handlers_test
+package notifier_test
 
 import (
     "bytes"
     "log"
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/web/handlers"
+    "github.com/cloudfoundry-incubator/notifications/notifier"
 
     . "github.com/onsi/ginkgo"
     . "github.com/onsi/gomega"
 )
 
 var _ = Describe("NotifyResponseGenerator", func() {
-
-    var notifyResponse handlers.NotifyResponseGenerator
+    var notifyResponse notifier.NotifyResponseGenerator
 
     Describe("SendMailToUser", func() {
 
@@ -27,7 +26,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
         })
 
         It("logs the email address of the recipient and returns the status", func() {
-            messageContext := handlers.MessageContext{
+            messageContext := notifier.MessageContext{
                 To: "fake-user@example.com",
             }
 
@@ -40,7 +39,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
         })
 
         It("logs the message envelope", func() {
-            messageContext := handlers.MessageContext{
+            messageContext := notifier.MessageContext{
                 To:                     "fake-user@example.com",
                 From:                   "from@email.com",
                 Subject:                "the subject",
@@ -68,7 +67,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
     })
 
     Describe("LoadSubjectTemplate", func() {
-        var manager handlers.EmailTemplateManager
+        var manager notifier.EmailTemplateManager
 
         Context("when subject is not set in the params", func() {
             It("returns the subject.missing template", func() {
@@ -120,7 +119,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
     })
 
     Describe("LoadBodyTemplates", func() {
-        var manager handlers.EmailTemplateManager
+        var manager notifier.EmailTemplateManager
 
         Context("loadSpace is true", func() {
             It("returns the space templates", func() {
@@ -139,7 +138,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
                     return false
                 }
 
-                notifyResponse := handlers.NotifyResponseGenerator{}
+                notifyResponse := notifier.NotifyResponseGenerator{}
 
                 plain, html, err := notifyResponse.LoadBodyTemplates(true, manager)
                 if err != nil {
@@ -167,7 +166,7 @@ var _ = Describe("NotifyResponseGenerator", func() {
                     return false
                 }
 
-                notifyResponse := handlers.NotifyResponseGenerator{}
+                notifyResponse := notifier.NotifyResponseGenerator{}
 
                 plain, html, err := notifyResponse.LoadBodyTemplates(false, manager)
                 if err != nil {
