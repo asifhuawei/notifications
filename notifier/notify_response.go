@@ -10,6 +10,11 @@ import (
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 )
 
+const (
+    StatusNotFound  = "notfound"
+    StatusNoAddress = "noaddress"
+)
+
 type NotifyResponseGenerator struct {
     logger        *log.Logger
     guidGenerator GUIDGenerationFunc
@@ -64,9 +69,9 @@ func (generator NotifyResponseGenerator) GenerateResponse(uaaUsers map[string]ua
         } else {
             var status string
             if uaaUser.ID == "" {
-                status = "notfound"
+                status = StatusNotFound
             } else {
-                status = "noaddress"
+                status = StatusNoAddress
             }
             mailInfo := make(map[string]string)
             mailInfo["status"] = status

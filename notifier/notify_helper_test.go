@@ -181,7 +181,7 @@ var _ = Describe("NotifyHelper", func() {
                     if err != nil {
                         panic(err)
                     }
-                    Expect(response[0]["status"]).To(Equal("notfound"))
+                    Expect(response[0]["status"]).To(Equal(notifier.StatusNotFound))
                     Expect(response[0]["recipient"]).To(Equal("user-789"))
                 })
             })
@@ -202,7 +202,7 @@ var _ = Describe("NotifyHelper", func() {
                     }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
-                    Expect(response[0]["status"]).To(Equal("noaddress"))
+                    Expect(response[0]["status"]).To(Equal(notifier.StatusNoAddress))
                 })
             })
 
