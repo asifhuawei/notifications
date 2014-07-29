@@ -1,15 +1,15 @@
-package notifier_test
+package postal_test
 
 import (
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     . "github.com/onsi/ginkgo"
     . "github.com/onsi/gomega"
 )
 
 var _ = Describe("EmailTemplateManager", func() {
-    var manager notifier.EmailTemplateManager
+    var manager postal.EmailTemplateManager
 
     Describe("LoadEmailTemplate", func() {
         Context("when there are no template overrides", func() {

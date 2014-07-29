@@ -7,7 +7,7 @@ import (
     "strings"
 
     "github.com/PuerkitoBio/goquery"
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifyParams struct {
@@ -57,9 +57,9 @@ func (params *NotifyParams) parseRequestBody(body io.Reader) {
     }
 }
 
-func (params *NotifyParams) ToOptions() notifier.Options {
+func (params *NotifyParams) ToOptions() postal.Options {
 
-    return notifier.Options{
+    return postal.Options{
         ReplyTo:           params.ReplyTo,
         Subject:           params.Subject,
         KindDescription:   params.KindDescription,

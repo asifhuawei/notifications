@@ -1,4 +1,4 @@
-package notifier_test
+package postal_test
 
 import (
     "bytes"
@@ -10,7 +10,7 @@ import (
     "strings"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("NotifyHelper", func() {
-    var helper notifier.NotifyHelper
+    var helper postal.NotifyHelper
     var fakeCC *FakeCloudController
     var logger *log.Logger
     var request *http.Request
@@ -28,7 +28,7 @@ var _ = Describe("NotifyHelper", func() {
     var writer *httptest.ResponseRecorder
     var token string
     var buffer *bytes.Buffer
-    var options notifier.Options
+    var options postal.Options
 
     BeforeEach(func() {
         tokenHeader := map[string]interface{}{
@@ -86,7 +86,7 @@ var _ = Describe("NotifyHelper", func() {
 
         mailClient = FakeMailClient{}
 
-        helper = notifier.NewNotifyHelper(fakeCC, logger, &fakeUAA, FakeGuidGenerator, &mailClient)
+        helper = postal.NewNotifyHelper(fakeCC, logger, &fakeUAA, FakeGuidGenerator, &mailClient)
     })
 
     Describe("NofifyServeHTTP", func() {
@@ -119,7 +119,7 @@ var _ = Describe("NotifyHelper", func() {
                 }
                 request.Header.Set("Authorization", "Bearer "+token)
 
-                options = notifier.Options{
+                options = postal.Options{
                     Kind:              "forgot_password",
                     KindDescription:   "Password reminder",
                     SourceDescription: "Login system",
@@ -131,7 +131,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when the SMTP server fails to deliver the mail", func() {
                 It("returns a status indicating that delivery failed", func() {
                     mailClient.errorOnSend = true
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -147,7 +147,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when the SMTP server cannot be reached", func() {
                 It("returns a status indicating that the server is unavailable", func() {
                     mailClient.errorOnConnect = true
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -163,7 +163,7 @@ var _ = Describe("NotifyHelper", func() {
             Context("when UAA cannot be reached", func() {
                 It("returns a 502 status code", func() {
                     fakeUAA.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusBadGateway))
                     Expect(writer.Body.String()).To(ContainSubstring("{\"errors\":[\"UAA is unavailable\"]}"))
@@ -172,7 +172,7 @@ var _ = Describe("NotifyHelper", func() {
 
             Context("when UAA cannot find the user", func() {
                 It("returns that the user in the response with status notfound", func() {
-                    helper.NotifyServeHTTP(writer, request, "user-789", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-789", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
 
@@ -181,7 +181,7 @@ var _ = Describe("NotifyHelper", func() {
                     if err != nil {
                         panic(err)
                     }
-                    Expect(response[0]["status"]).To(Equal(notifier.StatusNotFound))
+                    Expect(response[0]["status"]).To(Equal(postal.StatusNotFound))
                     Expect(response[0]["recipient"]).To(Equal("user-789"))
                 })
             })
@@ -193,7 +193,7 @@ var _ = Describe("NotifyHelper", func() {
                         Emails: []string{},
                     }
 
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     response := []map[string]string{}
                     err := json.Unmarshal(writer.Body.Bytes(), &response)
@@ -202,14 +202,14 @@ var _ = Describe("NotifyHelper", func() {
                     }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
-                    Expect(response[0]["status"]).To(Equal(notifier.StatusNoAddress))
+                    Expect(response[0]["status"]).To(Equal(postal.StatusNoAddress))
                 })
             })
 
             Context("when UAA causes some unknown error", func() {
                 It("returns a 502 status code", func() {
                     fakeUAA.ErrorForUserByID = errors.New("Boom!")
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusBadGateway))
                     Expect(writer.Body.String()).To(ContainSubstring("{\"errors\":[\"UAA Unknown Error: Boom!\"]}"))
@@ -227,7 +227,7 @@ var _ = Describe("NotifyHelper", func() {
                 })
 
                 It("logs the UUIDs of all recipients", func() {
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, true, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsSpace, options)
 
                     lines := strings.Split(buffer.String(), "\n")
 
@@ -236,7 +236,7 @@ var _ = Describe("NotifyHelper", func() {
                 })
 
                 It("returns necessary info in the response for the sent mail", func() {
-                    helper = notifier.NewNotifyHelper(fakeCC, logger, &fakeUAA, func() (*uuid.UUID, error) {
+                    helper = postal.NewNotifyHelper(fakeCC, logger, &fakeUAA, func() (*uuid.UUID, error) {
                         guid, err := uuid.NewV4()
                         if err != nil {
                             panic(err)
@@ -244,7 +244,7 @@ var _ = Describe("NotifyHelper", func() {
                         return guid, nil
                     }, &mailClient)
 
-                    helper.NotifyServeHTTP(writer, request, "user-123", loadCCUsers, false, options)
+                    helper.Execute(writer, request, "user-123", loadCCUsers, postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -289,7 +289,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(notifier.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
                 })
             })
 
@@ -299,7 +299,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(notifier.UAAGenericError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError{}))
                 })
             })
 
@@ -309,7 +309,7 @@ var _ = Describe("NotifyHelper", func() {
 
                     _, err := helper.LoadUaaUsers([]string{"user-123"}, fakeUAA)
 
-                    Expect(err).To(BeAssignableToTypeOf(notifier.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
                 })
             })
         })

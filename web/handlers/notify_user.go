@@ -7,24 +7,16 @@ import (
 
     "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/mail"
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifyUser struct {
-    logger        *log.Logger
-    mailClient    mail.ClientInterface
-    uaaClient     notifier.UAAInterface
-    guidGenerator notifier.GUIDGenerationFunc
-    helper        notifier.NotifyHelper
+    helper postal.NotifyHelper
 }
 
-func NewNotifyUser(logger *log.Logger, mailClient mail.ClientInterface, uaaClient notifier.UAAInterface, guidGenerator notifier.GUIDGenerationFunc) NotifyUser {
+func NewNotifyUser(logger *log.Logger, mailClient mail.ClientInterface, uaaClient postal.UAAInterface, guidGenerator postal.GUIDGenerationFunc) NotifyUser {
     return NotifyUser{
-        logger:        logger,
-        mailClient:    mailClient,
-        uaaClient:     uaaClient,
-        guidGenerator: guidGenerator,
-        helper:        notifier.NewNotifyHelper(cf.CloudController{}, logger, uaaClient, guidGenerator, mailClient),
+        helper: postal.NewNotifyHelper(cf.CloudController{}, logger, uaaClient, guidGenerator, mailClient),
     }
 }
 
@@ -46,6 +38,5 @@ func (handler NotifyUser) ServeHTTP(w http.ResponseWriter, req *http.Request) {
         return []cf.CloudControllerUser{{Guid: userGuid}}, nil
     }
 
-    loadSpaceAndOrganization := false
-    handler.helper.NotifyServeHTTP(w, req, userGUID, loadUsers, loadSpaceAndOrganization, params.ToOptions())
+    handler.helper.Execute(w, req, userGUID, loadUsers, postal.IsUser, params.ToOptions())
 }

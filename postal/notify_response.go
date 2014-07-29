@@ -1,4 +1,4 @@
-package notifier
+package postal
 
 import (
     "encoding/json"
@@ -35,7 +35,7 @@ type NotifyFailureResponse map[string][]string
 
 func (generator NotifyResponseGenerator) GenerateResponse(uaaUsers map[string]uaa.User,
     options Options, space, organization, token string,
-    w http.ResponseWriter, loadSpace bool) {
+    w http.ResponseWriter, notificationType NotificationType) {
 
     env := config.NewEnvironment()
     messages := NotifyResponse{}
@@ -46,7 +46,7 @@ func (generator NotifyResponseGenerator) GenerateResponse(uaaUsers map[string]ua
         return
     }
 
-    plainTextTemplate, htmlTemplate, err := generator.LoadBodyTemplates(loadSpace, NewTemplateManager())
+    plainTextTemplate, htmlTemplate, err := generator.LoadBodyTemplates(notificationType, NewTemplateManager())
     if err != nil {
         Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
         return
@@ -119,11 +119,11 @@ func (generator NotifyResponseGenerator) LoadSubjectTemplate(subject string, tem
     return subjectTemplate, nil
 }
 
-func (generator NotifyResponseGenerator) LoadBodyTemplates(isSpace bool, templateManager EmailTemplateManager) (string, string, error) {
+func (generator NotifyResponseGenerator) LoadBodyTemplates(notificationType NotificationType, templateManager EmailTemplateManager) (string, string, error) {
     var plainTextTemplate, htmlTemplate string
     var plainErr, htmlErr error
 
-    if isSpace {
+    if notificationType == IsSpace {
         plainTextTemplate, plainErr = templateManager.LoadEmailTemplate("space_body.text")
         htmlTemplate, htmlErr = templateManager.LoadEmailTemplate("space_body.html")
     } else {

@@ -8,32 +8,24 @@ import (
 
     "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/mail"
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifySpace struct {
-    logger          *log.Logger
     cloudController cf.CloudControllerInterface
-    uaaClient       notifier.UAAInterface
-    mailClient      mail.ClientInterface
-    guidGenerator   notifier.GUIDGenerationFunc
-    helper          notifier.NotifyHelper
+    helper          postal.NotifyHelper
 }
 
 func NewNotifySpace(logger *log.Logger, cloudController cf.CloudControllerInterface,
-    uaaClient notifier.UAAInterface, mailClient mail.ClientInterface, guidGenerator notifier.GUIDGenerationFunc) NotifySpace {
+    uaaClient postal.UAAInterface, mailClient mail.ClientInterface, guidGenerator postal.GUIDGenerationFunc) NotifySpace {
     return NotifySpace{
-        logger:          logger,
         cloudController: cloudController,
-        uaaClient:       uaaClient,
-        mailClient:      mailClient,
-        guidGenerator:   guidGenerator,
-        helper:          notifier.NewNotifyHelper(cloudController, logger, uaaClient, guidGenerator, mailClient),
+        helper:          postal.NewNotifyHelper(cloudController, logger, uaaClient, guidGenerator, mailClient),
     }
 }
 
 func Error(w http.ResponseWriter, code int, errors []string) {
-    response, err := json.Marshal(notifier.NotifyFailureResponse{
+    response, err := json.Marshal(postal.NotifyFailureResponse{
         "errors": errors,
     })
     if err != nil {
@@ -62,6 +54,5 @@ func (handler NotifySpace) ServeHTTP(w http.ResponseWriter, req *http.Request) {
         return handler.cloudController.GetUsersBySpaceGuid(spaceGuid, accessToken)
     }
 
-    isSpace := true
-    handler.helper.NotifyServeHTTP(w, req, spaceGUID, loadUsers, isSpace, params.ToOptions())
+    handler.helper.Execute(w, req, spaceGUID, loadUsers, postal.IsSpace, params.ToOptions())
 }

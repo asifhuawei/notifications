@@ -3,7 +3,7 @@ package handlers_test
 import (
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/notifier"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/cloudfoundry-incubator/notifications/web/handlers"
 
     . "github.com/onsi/ginkgo"
@@ -200,7 +200,7 @@ var _ = Describe("NotifyParams", func() {
     })
 
     Describe("ToOptions", func() {
-        It("converts itself to a notifier.Options object", func() {
+        It("converts itself to a postal.Options object", func() {
             body := strings.NewReader(`{
                 "kind": "test_email",
                 "kind_description": "Descriptive Email Name",
@@ -214,7 +214,7 @@ var _ = Describe("NotifyParams", func() {
             params, _ := handlers.NewNotifyParams(body)
 
             options := params.ToOptions()
-            Expect(options).To(Equal(notifier.Options{
+            Expect(options).To(Equal(postal.Options{
                 Kind:              "test_email",
                 KindDescription:   "Descriptive Email Name",
                 SourceDescription: "Descriptive Component Name",

@@ -1,4 +1,4 @@
-package notifier
+package postal
 
 import (
     "encoding/json"
@@ -13,6 +13,13 @@ import (
     "github.com/dgrijalva/jwt-go"
     "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
+)
+
+type NotificationType int
+
+const (
+    IsSpace NotificationType = iota
+    IsUser
 )
 
 type GUIDGenerationFunc func() (*uuid.UUID, error)
@@ -89,9 +96,9 @@ func Error(w http.ResponseWriter, code int, errors []string) {
     w.Write(response)
 }
 
-func (helper NotifyHelper) NotifyServeHTTP(w http.ResponseWriter, req *http.Request,
+func (helper NotifyHelper) Execute(w http.ResponseWriter, req *http.Request,
     guid string, loadCCUsers func(spaceGuid, accessToken string) ([]cf.CloudControllerUser, error),
-    loadSpace bool, options Options) {
+    notificationType NotificationType, options Options) {
 
     token, err := helper.uaaClient.GetClientToken()
     if err != nil {
@@ -138,7 +145,7 @@ func (helper NotifyHelper) NotifyServeHTTP(w http.ResponseWriter, req *http.Requ
     }
 
     var space, organization string
-    if loadSpace {
+    if notificationType == IsSpace {
         space, organization, err = helper.loadSpaceAndOrganization(guid, token.Access)
         if err != nil {
             Error(w, http.StatusBadGateway, []string{"Cloud Controller is unavailable"})
@@ -155,7 +162,7 @@ func (helper NotifyHelper) NotifyServeHTTP(w http.ResponseWriter, req *http.Requ
         helper.mailClient)
 
     responseGenerator.GenerateResponse(uaaUsers, options, space,
-        organization, clientToken.Claims["client_id"].(string), w, loadSpace)
+        organization, clientToken.Claims["client_id"].(string), w, notificationType)
 }
 
 func (helper NotifyHelper) loadSpaceAndOrganization(spaceGuid, token string) (string, string, error) {
