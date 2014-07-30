@@ -80,30 +80,24 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     courier.uaaClient.SetToken(token.Access)
 
     userLoader := NewUserLoader(courier.uaaClient, courier.logger, courier.cloudController)
-
     users, err := userLoader.Load(notificationType, guid, token.Access)
     if err != nil {
         return err
     }
 
-    var space, organization string
-    if notificationType == IsSpace {
-        spaceLoader := NewSpaceLoader(courier.cloudController)
-        space, organization, err = spaceLoader.Load(guid, token.Access)
-        if err != nil {
-            return CCDownError{"Cloud Controller is unavailable"}
-        }
+    spaceLoader := NewSpaceLoader(courier.cloudController)
+    space, organization, err := spaceLoader.Load(guid, token.Access, notificationType)
+    if err != nil {
+        return CCDownError{"Cloud Controller is unavailable"}
     }
 
     clientToken, _ := jwt.Parse(rawToken, func(t *jwt.Token) ([]byte, error) {
         return []byte(config.UAAPublicKey), nil
     })
+    clientID := clientToken.Claims["client_id"].(string)
 
-    responseGenerator := NewNotifyResponseGenerator(courier.logger, courier.guidGenerator,
-        courier.mailClient)
-
-    responseGenerator.GenerateResponse(users, options, space,
-        organization, clientToken.Claims["client_id"].(string), w, notificationType)
+    responseGenerator := NewNotifyResponseGenerator(courier.logger, courier.guidGenerator, courier.mailClient)
+    responseGenerator.GenerateResponse(users, options, space, organization, clientID, w, notificationType)
 
     return nil
 }

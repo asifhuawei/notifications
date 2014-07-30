@@ -140,11 +140,14 @@ var _ = Describe("Courier", func() {
             Context("when the SMTP server fails to deliver the mail", func() {
                 It("returns a status indicating that delivery failed", func() {
                     mailClient.errorOnSend = true
-                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &parsed)
+                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
                     if err != nil {
                         panic(err)
                     }
@@ -156,11 +159,14 @@ var _ = Describe("Courier", func() {
             Context("when the SMTP server cannot be reached", func() {
                 It("returns a status indicating that the server is unavailable", func() {
                     mailClient.errorOnConnect = true
-                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &parsed)
+                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
                     if err != nil {
                         panic(err)
                     }
@@ -171,12 +177,15 @@ var _ = Describe("Courier", func() {
 
             Context("when UAA cannot find the user", func() {
                 It("returns that the user in the response with status notfound", func() {
-                    courier.Dispatch(writer, token, "user-789", postal.IsUser, options)
+                    err := courier.Dispatch(writer, token, "user-789", postal.IsUser, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
 
                     response := []map[string]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &response)
+                    err = json.Unmarshal(writer.Body.Bytes(), &response)
                     if err != nil {
                         panic(err)
                     }
@@ -192,10 +201,13 @@ var _ = Describe("Courier", func() {
                         Emails: []string{},
                     }
 
-                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     response := []map[string]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &response)
+                    err = json.Unmarshal(writer.Body.Bytes(), &response)
                     if err != nil {
                         panic(err)
                     }
@@ -207,7 +219,10 @@ var _ = Describe("Courier", func() {
 
             Context("When load Users returns multiple users", func() {
                 It("logs the UUIDs of all recipients", func() {
-                    courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     lines := strings.Split(buffer.String(), "\n")
 
@@ -217,11 +232,14 @@ var _ = Describe("Courier", func() {
 
                 It("returns necessary info in the response for the sent mail", func() {
                     courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
-                    courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    if err != nil {
+                        panic(err)
+                    }
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
-                    err := json.Unmarshal(writer.Body.Bytes(), &parsed)
+                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
                     if err != nil {
                         panic(err)
                     }

@@ -81,7 +81,7 @@ func (fake *FakeCloudController) LoadSpace(guid, token string) (cf.CloudControll
     if space, ok := fake.Spaces[guid]; ok {
         return space, fake.LoadSpaceError
     } else {
-        return cf.CloudControllerSpace{}, fake.LoadSpaceError
+        return cf.CloudControllerSpace{}, errors.New("CloudController Failure (404): NOT FOUND")
     }
 }
 
