@@ -4,7 +4,6 @@ import (
     "encoding/json"
     "log"
     "net/http"
-    "strings"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/config"
@@ -71,7 +70,7 @@ func Error(w http.ResponseWriter, code int, errors []string) {
     w.Write(response)
 }
 
-func (courier Courier) Dispatch(w http.ResponseWriter, req *http.Request,
+func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     guid string, notificationType NotificationType, options Options) error {
 
     token, err := courier.uaaClient.GetClientToken()
@@ -96,7 +95,6 @@ func (courier Courier) Dispatch(w http.ResponseWriter, req *http.Request,
         }
     }
 
-    rawToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
     clientToken, _ := jwt.Parse(rawToken, func(t *jwt.Token) ([]byte, error) {
         return []byte(config.UAAPublicKey), nil
     })

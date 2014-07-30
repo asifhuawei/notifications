@@ -21,7 +21,6 @@ var _ = Describe("Courier", func() {
     var courier postal.Courier
     var fakeCC *FakeCloudController
     var logger *log.Logger
-    var request *http.Request
     var fakeUAA FakeUAAClient
     var mailClient FakeMailClient
     var writer *httptest.ResponseRecorder
@@ -91,23 +90,6 @@ var _ = Describe("Courier", func() {
     Describe("NofifyServeHTTP", func() {
         Context("when the request is valid", func() {
             BeforeEach(func() {
-                requestBody, err := json.Marshal(map[string]string{
-                    "kind":               "forgot_password",
-                    "kind_description":   "Password reminder",
-                    "source_description": "Login system",
-                    "text":               "Please reset your password by clicking on this link...",
-                    "html":               "<p>Please reset your password by clicking on this link...</p>",
-                })
-                if err != nil {
-                    panic(err)
-                }
-
-                request, err = http.NewRequest("POST", "/users/user-123", bytes.NewReader(requestBody))
-                if err != nil {
-                    panic(err)
-                }
-                request.Header.Set("Authorization", "Bearer "+token)
-
                 options = postal.Options{
                     Kind:              "forgot_password",
                     KindDescription:   "Password reminder",
@@ -121,7 +103,7 @@ var _ = Describe("Courier", func() {
                 Context("when Cloud Controller is unavailable to load space users", func() {
                     It("returns a CCDownError error", func() {
                         fakeCC.GetUsersBySpaceGuidError = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, request, "user-123", postal.IsSpace, options)
+                        err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.CCDownError{}))
                     })
@@ -130,7 +112,7 @@ var _ = Describe("Courier", func() {
                 Context("when Cloud Controller is unavailable to load a space", func() {
                     It("returns a CCDownError error", func() {
                         fakeCC.LoadSpaceError = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, request, "user-123", postal.IsSpace, options)
+                        err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.CCDownError{}))
                     })
@@ -139,7 +121,7 @@ var _ = Describe("Courier", func() {
                 Context("when UAA cannot be reached", func() {
                     It("returns a UAADownError", func() {
                         fakeUAA.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
-                        err := courier.Dispatch(writer, request, "user-123", postal.IsUser, options)
+                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
                     })
@@ -148,7 +130,7 @@ var _ = Describe("Courier", func() {
                 Context("when UAA fails for unknown reasons", func() {
                     It("returns a UAAGenericError", func() {
                         fakeUAA.ErrorForUserByID = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, request, "user-123", postal.IsUser, options)
+                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError{}))
                     })
@@ -158,7 +140,7 @@ var _ = Describe("Courier", func() {
             Context("when the SMTP server fails to deliver the mail", func() {
                 It("returns a status indicating that delivery failed", func() {
                     mailClient.errorOnSend = true
-                    courier.Dispatch(writer, request, "user-123", postal.IsUser, options)
+                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -174,7 +156,7 @@ var _ = Describe("Courier", func() {
             Context("when the SMTP server cannot be reached", func() {
                 It("returns a status indicating that the server is unavailable", func() {
                     mailClient.errorOnConnect = true
-                    courier.Dispatch(writer, request, "user-123", postal.IsUser, options)
+                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
@@ -189,7 +171,7 @@ var _ = Describe("Courier", func() {
 
             Context("when UAA cannot find the user", func() {
                 It("returns that the user in the response with status notfound", func() {
-                    courier.Dispatch(writer, request, "user-789", postal.IsUser, options)
+                    courier.Dispatch(writer, token, "user-789", postal.IsUser, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
 
@@ -210,7 +192,7 @@ var _ = Describe("Courier", func() {
                         Emails: []string{},
                     }
 
-                    courier.Dispatch(writer, request, "user-123", postal.IsUser, options)
+                    courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                     response := []map[string]string{}
                     err := json.Unmarshal(writer.Body.Bytes(), &response)
@@ -225,7 +207,7 @@ var _ = Describe("Courier", func() {
 
             Context("When load Users returns multiple users", func() {
                 It("logs the UUIDs of all recipients", func() {
-                    courier.Dispatch(writer, request, "space-001", postal.IsSpace, options)
+                    courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
 
                     lines := strings.Split(buffer.String(), "\n")
 
@@ -235,7 +217,7 @@ var _ = Describe("Courier", func() {
 
                 It("returns necessary info in the response for the sent mail", func() {
                     courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
-                    courier.Dispatch(writer, request, "space-001", postal.IsSpace, options)
+                    courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
                     parsed := []map[string]string{}
