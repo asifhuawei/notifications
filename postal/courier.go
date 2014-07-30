@@ -88,7 +88,7 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     spaceLoader := NewSpaceLoader(courier.cloudController)
     space, organization, err := spaceLoader.Load(guid, token.Access, notificationType)
     if err != nil {
-        return CCDownError{"Cloud Controller is unavailable"}
+        return CCDownError("Cloud Controller is unavailable")
     }
 
     clientToken, _ := jwt.Parse(rawToken, func(t *jwt.Token) ([]byte, error) {

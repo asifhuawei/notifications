@@ -105,7 +105,7 @@ var _ = Describe("Courier", func() {
                         fakeCC.GetUsersBySpaceGuidError = errors.New("BOOM!")
                         err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
-                        Expect(err).To(BeAssignableToTypeOf(postal.CCDownError{}))
+                        Expect(err).To(BeAssignableToTypeOf(postal.CCDownError("")))
                     })
                 })
 
@@ -114,7 +114,7 @@ var _ = Describe("Courier", func() {
                         fakeCC.LoadSpaceError = errors.New("BOOM!")
                         err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
-                        Expect(err).To(BeAssignableToTypeOf(postal.CCDownError{}))
+                        Expect(err).To(BeAssignableToTypeOf(postal.CCDownError("")))
                     })
                 })
 
@@ -123,7 +123,7 @@ var _ = Describe("Courier", func() {
                         fakeUAA.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
                         err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
-                        Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
+                        Expect(err).To(BeAssignableToTypeOf(postal.UAADownError("")))
                     })
                 })
 
@@ -132,7 +132,7 @@ var _ = Describe("Courier", func() {
                         fakeUAA.ErrorForUserByID = errors.New("BOOM!")
                         err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
-                        Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError{}))
+                        Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError("")))
                     })
                 })
             })

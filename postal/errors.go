@@ -1,33 +1,25 @@
 package postal
 
-type CCDownError struct {
-    message string
-}
+type CCDownError string
 
 func (err CCDownError) Error() string {
-    return err.message
+    return string(err)
 }
 
-type UAADownError struct {
-    message string
-}
+type UAADownError string
 
 func (err UAADownError) Error() string {
-    return err.message
+    return string(err)
 }
 
-type UAAUserNotFoundError struct {
-    message string
-}
+type UAAUserNotFoundError string
 
 func (err UAAUserNotFoundError) Error() string {
-    return err.message
+    return string(err)
 }
 
-type UAAGenericError struct {
-    message string
-}
+type UAAGenericError string
 
 func (err UAAGenericError) Error() string {
-    return err.message
+    return string(err)
 }

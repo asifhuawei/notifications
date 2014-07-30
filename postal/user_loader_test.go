@@ -98,7 +98,7 @@ var _ = Describe("UserLoader", func() {
 
                     _, err := loader.Load(postal.IsUser, "user-123", token)
 
-                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError("")))
                 })
             })
 
@@ -108,7 +108,7 @@ var _ = Describe("UserLoader", func() {
 
                     _, err := loader.Load(postal.IsUser, "user-123", token)
 
-                    Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError("")))
                 })
             })
 
@@ -118,7 +118,7 @@ var _ = Describe("UserLoader", func() {
 
                     _, err := loader.Load(postal.IsUser, "user-123", token)
 
-                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
+                    Expect(err).To(BeAssignableToTypeOf(postal.UAADownError("")))
                 })
             })
         })

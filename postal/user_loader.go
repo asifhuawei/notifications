@@ -34,7 +34,7 @@ func (loader UserLoader) Load(notificationType NotificationType, guid, token str
     if notificationType == IsSpace {
         ccUsers, err = loader.cloudController.GetUsersBySpaceGuid(guid, token)
         if err != nil {
-            return users, CCDownError{"Cloud Controller is unavailable"}
+            return users, CCDownError("Cloud Controller is unavailable")
         }
     } else {
         ccUsers = []cf.CloudControllerUser{{Guid: guid}}
@@ -68,31 +68,21 @@ func (loader UserLoader) errorFor(err error) (map[string]uaa.User, error) {
 
     switch err.(type) {
     case *url.Error:
-        return users, UAADownError{
-            message: "UAA is unavailable",
-        }
+        return users, UAADownError("UAA is unavailable")
     case uaa.Failure:
         uaaFailure := err.(uaa.Failure)
         loader.logger.Printf("error:  %v", err)
 
         if uaaFailure.Code() == http.StatusNotFound {
             if strings.Contains(uaaFailure.Message(), "Requested route") {
-                return users, UAADownError{
-                    message: "UAA is unavailable",
-                }
+                return users, UAADownError("UAA is unavailable")
             } else {
-                return users, UAAGenericError{
-                    message: "UAA Unknown 404 error message: " + uaaFailure.Message(),
-                }
+                return users, UAAGenericError("UAA Unknown 404 error message: " + uaaFailure.Message())
             }
         }
 
-        return users, UAADownError{
-            message: "UAA is unavailable",
-        }
+        return users, UAADownError("UAA is unavailable")
     default:
-        return users, UAAGenericError{
-            message: "UAA Unknown Error: " + err.Error(),
-        }
+        return users, UAAGenericError("UAA Unknown Error: " + err.Error())
     }
 }
