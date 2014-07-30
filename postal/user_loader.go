@@ -2,6 +2,7 @@ package postal
 
 import (
     "log"
+    "net/http"
     "net/url"
     "strings"
 
@@ -10,21 +11,35 @@ import (
 )
 
 type UserLoader struct {
-    uaaClient UAAInterface
-    logger    *log.Logger
+    uaaClient       UAAInterface
+    logger          *log.Logger
+    cloudController cf.CloudControllerInterface
 }
 
-func NewUserLoader(uaaClient UAAInterface, logger *log.Logger) UserLoader {
+func NewUserLoader(uaaClient UAAInterface, logger *log.Logger, cloudController cf.CloudControllerInterface) UserLoader {
     return UserLoader{
-        uaaClient: uaaClient,
-        logger:    logger,
+        uaaClient:       uaaClient,
+        logger:          logger,
+        cloudController: cloudController,
     }
 }
 
-func (loader UserLoader) Load(ccUsers []cf.CloudControllerUser) (map[string]uaa.User, error) {
+func (loader UserLoader) Load(notificationType NotificationType, guid, token string) (map[string]uaa.User, error) {
     users := make(map[string]uaa.User)
 
     var guids []string
+    var ccUsers []cf.CloudControllerUser
+    var err error
+
+    if notificationType == IsSpace {
+        ccUsers, err = loader.cloudController.GetUsersBySpaceGuid(guid, token)
+        if err != nil {
+            return users, CCDownError{"Cloud Controller is unavailable"}
+        }
+    } else {
+        ccUsers = []cf.CloudControllerUser{{Guid: guid}}
+    }
+
     for _, ccUser := range ccUsers {
         loader.logger.Println("CloudController user guid: " + ccUser.Guid)
         guids = append(guids, ccUser.Guid)
@@ -60,7 +75,7 @@ func (loader UserLoader) errorFor(err error) (map[string]uaa.User, error) {
         uaaFailure := err.(uaa.Failure)
         loader.logger.Printf("error:  %v", err)
 
-        if uaaFailure.Code() == 404 {
+        if uaaFailure.Code() == http.StatusNotFound {
             if strings.Contains(uaaFailure.Message(), "Requested route") {
                 return users, UAADownError{
                     message: "UAA is unavailable",

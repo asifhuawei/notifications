@@ -16,6 +16,7 @@ var _ = Describe("UserLoader", func() {
     var loader postal.UserLoader
     var token string
     var fakeUAAClient FakeUAAClient
+    var fakeCC *FakeCloudController
 
     Describe("Load", func() {
         BeforeEach(func() {
@@ -30,6 +31,26 @@ var _ = Describe("UserLoader", func() {
             }
 
             token = BuildToken(tokenHeader, tokenClaims)
+
+            fakeCC = NewFakeCloudController()
+            fakeCC.UsersBySpaceGuid["space-001"] = []cf.CloudControllerUser{
+                cf.CloudControllerUser{Guid: "user-123"},
+                cf.CloudControllerUser{Guid: "user-789"},
+            }
+
+            fakeCC.Spaces = map[string]cf.CloudControllerSpace{
+                "space-001": cf.CloudControllerSpace{
+                    Name:             "production",
+                    Guid:             "space-001",
+                    OrganizationGuid: "org-001",
+                },
+            }
+
+            fakeCC.Orgs = map[string]cf.CloudControllerOrganization{
+                "org-001": cf.CloudControllerOrganization{
+                    Name: "pivotaltracker",
+                },
+            }
 
             fakeUAAClient = FakeUAAClient{
                 ClientToken: uaa.Token{
@@ -48,12 +69,12 @@ var _ = Describe("UserLoader", func() {
             }
 
             logger := log.New(bytes.NewBufferString(""), "", 0)
-            loader = postal.NewUserLoader(&fakeUAAClient, logger)
+            loader = postal.NewUserLoader(&fakeUAAClient, logger, fakeCC)
         })
 
         Context("UAA returns a collection of users", func() {
             It("returns a map of users from GUID to uaa.User", func() {
-                users, err := loader.Load([]cf.CloudControllerUser{{Guid: "user-123"}, {Guid: "user-789"}})
+                users, err := loader.Load(postal.IsSpace, "space-001", token)
                 if err != nil {
                     panic(err)
                 }
@@ -64,7 +85,8 @@ var _ = Describe("UserLoader", func() {
                 Expect(user123.ID).To(Equal("user-123"))
                 Expect(user123.Emails[0]).To(Equal("user-123@example.com"))
 
-                user789 := users["user-789"]
+                user789, ok := users["user-789"]
+                Expect(ok).To(BeTrue())
                 Expect(user789).To(Equal(uaa.User{}))
             })
         })
@@ -74,7 +96,7 @@ var _ = Describe("UserLoader", func() {
                 It("returns a UAADownError", func() {
                     fakeUAAClient.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
 
-                    _, err := loader.Load([]cf.CloudControllerUser{{Guid: "user-123"}})
+                    _, err := loader.Load(postal.IsUser, "user-123", token)
 
                     Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
                 })
@@ -84,7 +106,7 @@ var _ = Describe("UserLoader", func() {
                 It("returns a UAAGenericError", func() {
                     fakeUAAClient.ErrorForUserByID = uaa.NewFailure(404, []byte("Weird message we haven't seen"))
 
-                    _, err := loader.Load([]cf.CloudControllerUser{{Guid: "user-123"}})
+                    _, err := loader.Load(postal.IsUser, "user-123", token)
 
                     Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError{}))
                 })
@@ -94,7 +116,7 @@ var _ = Describe("UserLoader", func() {
                 It("returns a UAADownError", func() {
                     fakeUAAClient.ErrorForUserByID = uaa.NewFailure(500, []byte("Doesn't matter"))
 
-                    _, err := loader.Load([]cf.CloudControllerUser{{Guid: "user-123"}})
+                    _, err := loader.Load(postal.IsUser, "user-123", token)
 
                     Expect(err).To(BeAssignableToTypeOf(postal.UAADownError{}))
                 })

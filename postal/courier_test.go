@@ -11,7 +11,6 @@ import (
 
     "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/postal"
-    "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
     . "github.com/onsi/ginkgo"
@@ -235,7 +234,7 @@ var _ = Describe("Courier", func() {
                 })
 
                 It("returns necessary info in the response for the sent mail", func() {
-                    courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, uuid.NewV4)
+                    courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
                     courier.Dispatch(writer, request, "space-001", postal.IsSpace, options)
 
                     Expect(writer.Code).To(Equal(http.StatusOK))
@@ -245,14 +244,17 @@ var _ = Describe("Courier", func() {
                         panic(err)
                     }
 
-                    Expect(string(writer.Body.Bytes())).To(ContainSubstring(`"recipient":"user-123"`))
-                    Expect(string(writer.Body.Bytes())).To(ContainSubstring(`"recipient":"user-456"`))
+                    Expect(parsed).To(ContainElement(map[string]string{
+                        "recipient":       "user-123",
+                        "status":          "delivered",
+                        "notification_id": "deadbeef-aabb-ccdd-eeff-001122334455",
+                    }))
 
-                    Expect(parsed[0]["status"]).To(Equal("delivered"))
-                    Expect(parsed[0]["notification_id"]).NotTo(Equal(""))
-
-                    Expect(parsed[1]["status"]).To(Equal("delivered"))
-                    Expect(parsed[1]["notification_id"]).NotTo(Equal(parsed[0]["notification_id"]))
+                    Expect(parsed).To(ContainElement(map[string]string{
+                        "recipient":       "user-456",
+                        "status":          "delivered",
+                        "notification_id": "deadbeef-aabb-ccdd-eeff-001122334455",
+                    }))
                 })
             })
         })

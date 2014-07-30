@@ -80,19 +80,9 @@ func (courier Courier) Dispatch(w http.ResponseWriter, req *http.Request,
     }
     courier.uaaClient.SetToken(token.Access)
 
-    userLoader := NewUserLoader(courier.uaaClient, courier.logger)
+    userLoader := NewUserLoader(courier.uaaClient, courier.logger, courier.cloudController)
 
-    var ccUsers []cf.CloudControllerUser
-    if notificationType == IsSpace {
-        ccUsers, err = courier.cloudController.GetUsersBySpaceGuid(guid, token.Access)
-        if err != nil {
-            return CCDownError{"Cloud Controller is unavailable"}
-        }
-    } else {
-        ccUsers = []cf.CloudControllerUser{{Guid: guid}}
-    }
-
-    users, err := userLoader.Load(ccUsers)
+    users, err := userLoader.Load(notificationType, guid, token.Access)
     if err != nil {
         return err
     }
