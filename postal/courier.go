@@ -102,25 +102,19 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     clientID := clientToken.Claims["client_id"].(string)
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    templateLoader := NewTemplateLoader()
+    templates, err := templateLoader.Load(options.Subject, notificationType)
+    if err != nil {
+        Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
+        return nil
+    }
+
     env := config.NewEnvironment()
     messages := NotifyResponse{}
-
-    subjectTemplate, err := courier.LoadSubjectTemplate(options.Subject, NewTemplateManager())
-    if err != nil {
-        Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
-        return nil
-    }
-
-    plainTextTemplate, htmlTemplate, err := courier.LoadBodyTemplates(notificationType, NewTemplateManager())
-    if err != nil {
-        Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
-        return nil
-    }
-
     for userGUID, uaaUser := range users {
         if len(uaaUser.Emails) > 0 {
             context := NewMessageContext(uaaUser, options, env, space, organization,
-                clientID, courier.guidGenerator, plainTextTemplate, htmlTemplate, subjectTemplate)
+                clientID, courier.guidGenerator, templates.Text, templates.HTML, templates.Subject)
 
             emailStatus := courier.SendMailToUser(context, courier.logger, courier.mailClient)
             courier.logger.Println(emailStatus)
@@ -158,9 +152,7 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     return nil
 }
 
-func (courier Courier) SendMailToUser(context MessageContext, logger *log.Logger,
-    mailClient mail.ClientInterface) string {
-
+func (courier Courier) SendMailToUser(context MessageContext, logger *log.Logger, mailClient mail.ClientInterface) string {
     logger.Printf("Sending email to %s", context.To)
     status, message, err := SendMail(mailClient, context)
     if err != nil {
@@ -169,43 +161,4 @@ func (courier Courier) SendMailToUser(context MessageContext, logger *log.Logger
 
     logger.Print(message.Data())
     return status
-}
-
-func (courier Courier) LoadSubjectTemplate(subject string, templateManager EmailTemplateManager) (string, error) {
-    var templateToLoad string
-    if subject == "" {
-        templateToLoad = "subject.missing"
-    } else {
-        templateToLoad = "subject.provided"
-    }
-
-    subjectTemplate, err := templateManager.LoadEmailTemplate(templateToLoad)
-    if err != nil {
-        return "", err
-    }
-
-    return subjectTemplate, nil
-}
-
-func (courier Courier) LoadBodyTemplates(notificationType NotificationType, templateManager EmailTemplateManager) (string, string, error) {
-    var plainTextTemplate, htmlTemplate string
-    var plainErr, htmlErr error
-
-    if notificationType == IsSpace {
-        plainTextTemplate, plainErr = templateManager.LoadEmailTemplate("space_body.text")
-        htmlTemplate, htmlErr = templateManager.LoadEmailTemplate("space_body.html")
-    } else {
-        plainTextTemplate, plainErr = templateManager.LoadEmailTemplate("user_body.text")
-        htmlTemplate, htmlErr = templateManager.LoadEmailTemplate("user_body.html")
-    }
-
-    if plainErr != nil {
-        return "", "", plainErr
-    }
-
-    if htmlErr != nil {
-        return "", "", htmlErr
-    }
-
-    return plainTextTemplate, htmlTemplate, nil
 }

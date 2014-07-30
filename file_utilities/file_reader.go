@@ -6,14 +6,12 @@ import (
 )
 
 func ReadFile(path string) (string, error) {
-    buffer, err := ioutil.ReadFile(path)
+    bytes, err := ioutil.ReadFile(path)
     if err != nil {
         return "", err
     }
 
-    contents := string(buffer)
-
-    return contents, nil
+    return string(bytes), nil
 }
 
 func FileExists(path string) bool {
@@ -21,5 +19,6 @@ func FileExists(path string) bool {
     if err != nil {
         return false
     }
+
     return true
 }
