@@ -8,6 +8,7 @@ import (
     "net/http/httptest"
 
     "github.com/cloudfoundry-incubator/notifications/mail"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/cloudfoundry-incubator/notifications/web/handlers"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
@@ -54,7 +55,8 @@ var _ = Describe("NotifyUser", func() {
             },
         }
 
-        handler = handlers.NewNotifyUser(logger, &mailClient, &uaaClient, FakeGuidGenerator)
+        courier := postal.NewCourier(logger, NewFakeCloudController(), &uaaClient, &mailClient, FakeGuidGenerator)
+        handler = handlers.NewNotifyUser(courier)
     })
 
     Context("when the request is valid", func() {

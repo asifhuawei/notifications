@@ -53,9 +53,10 @@ func (m SigningMethodFast) Verify(signingString, signature string, key []byte) (
 }
 
 type FakeCloudController struct {
-    UsersBySpaceGuid         map[string][]cf.CloudControllerUser
     CurrentToken             string
     GetUsersBySpaceGuidError error
+    LoadSpaceError           error
+    UsersBySpaceGuid         map[string][]cf.CloudControllerUser
     Spaces                   map[string]cf.CloudControllerSpace
     Orgs                     map[string]cf.CloudControllerOrganization
 }
@@ -78,9 +79,9 @@ func (fake *FakeCloudController) GetUsersBySpaceGuid(guid, token string) ([]cf.C
 
 func (fake *FakeCloudController) LoadSpace(guid, token string) (cf.CloudControllerSpace, error) {
     if space, ok := fake.Spaces[guid]; ok {
-        return space, nil
+        return space, fake.LoadSpaceError
     } else {
-        return cf.CloudControllerSpace{}, nil
+        return cf.CloudControllerSpace{}, fake.LoadSpaceError
     }
 }
 

@@ -1,22 +1,19 @@
 package handlers
 
 import (
-    "log"
     "net/http"
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/cf"
-    "github.com/cloudfoundry-incubator/notifications/mail"
     "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifyUser struct {
-    helper postal.NotifyHelper
+    courier postal.Courier
 }
 
-func NewNotifyUser(logger *log.Logger, mailClient mail.ClientInterface, uaaClient postal.UAAInterface, guidGenerator postal.GUIDGenerationFunc) NotifyUser {
+func NewNotifyUser(courier postal.Courier) NotifyUser {
     return NotifyUser{
-        helper: postal.NewNotifyHelper(cf.CloudController{}, logger, uaaClient, guidGenerator, mailClient),
+        courier: courier,
     }
 }
 
@@ -34,9 +31,5 @@ func (handler NotifyUser) ServeHTTP(w http.ResponseWriter, req *http.Request) {
         return
     }
 
-    loadUsers := func(userGuid, accessToken string) ([]cf.CloudControllerUser, error) {
-        return []cf.CloudControllerUser{{Guid: userGuid}}, nil
-    }
-
-    handler.helper.Execute(w, req, userGUID, loadUsers, postal.IsUser, params.ToOptions())
+    handler.courier.Dispatch(w, req, userGUID, postal.IsUser, params.ToOptions())
 }

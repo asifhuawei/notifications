@@ -2,25 +2,22 @@ package handlers
 
 import (
     "encoding/json"
-    "log"
     "net/http"
     "strings"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
-    "github.com/cloudfoundry-incubator/notifications/mail"
     "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifySpace struct {
     cloudController cf.CloudControllerInterface
-    helper          postal.NotifyHelper
+    courier         postal.Courier
 }
 
-func NewNotifySpace(logger *log.Logger, cloudController cf.CloudControllerInterface,
-    uaaClient postal.UAAInterface, mailClient mail.ClientInterface, guidGenerator postal.GUIDGenerationFunc) NotifySpace {
+func NewNotifySpace(cloudController cf.CloudControllerInterface, courier postal.Courier) NotifySpace {
     return NotifySpace{
         cloudController: cloudController,
-        helper:          postal.NewNotifyHelper(cloudController, logger, uaaClient, guidGenerator, mailClient),
+        courier:         courier,
     }
 }
 
@@ -50,9 +47,11 @@ func (handler NotifySpace) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
     spaceGUID := strings.TrimPrefix(req.URL.Path, "/spaces/")
 
-    loadUsers := func(spaceGuid, accessToken string) ([]cf.CloudControllerUser, error) {
-        return handler.cloudController.GetUsersBySpaceGuid(spaceGuid, accessToken)
+    err = handler.courier.Dispatch(w, req, spaceGUID, postal.IsSpace, params.ToOptions())
+    if err != nil {
+        switch err.(type) {
+        case postal.CCDownError:
+            Error(w, http.StatusBadGateway, []string{"Cloud Controller is unavailable"})
+        }
     }
-
-    handler.helper.Execute(w, req, spaceGUID, loadUsers, postal.IsSpace, params.ToOptions())
 }

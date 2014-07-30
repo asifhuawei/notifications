@@ -9,6 +9,7 @@ import (
     "net/http/httptest"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/cloudfoundry-incubator/notifications/web/handlers"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
@@ -98,7 +99,8 @@ var _ = Describe("NotifySpace", func() {
                 },
             }
 
-            handler = handlers.NewNotifySpace(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
+            courier := postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
+            handler = handlers.NewNotifySpace(fakeCC, courier)
         })
 
         It("uses the notifications app token when making calls to cloud controller", func() {

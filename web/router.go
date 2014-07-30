@@ -9,6 +9,7 @@ import (
     "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/cloudfoundry-incubator/notifications/mail"
+    "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/cloudfoundry-incubator/notifications/web/handlers"
     "github.com/cloudfoundry-incubator/notifications/web/middleware"
     "github.com/gorilla/mux"
@@ -39,11 +40,13 @@ func NewRouter() Router {
 
     cloudController := cf.NewCloudController(env.CCHost)
 
+    courier := postal.NewCourier(logger, cloudController, &uaaClient, &mailClient, uuid.NewV4)
+
     return Router{
         stacks: map[string]stack.Stack{
             "GET /info":           stack.NewStack(handlers.NewGetInfo()).Use(logging),
-            "POST /users/{guid}":  stack.NewStack(handlers.NewNotifyUser(logger, &mailClient, &uaaClient, uuid.NewV4)).Use(logging, authenticator),
-            "POST /spaces/{guid}": stack.NewStack(handlers.NewNotifySpace(logger, cloudController, &uaaClient, &mailClient, uuid.NewV4)).Use(logging, authenticator),
+            "POST /users/{guid}":  stack.NewStack(handlers.NewNotifyUser(courier)).Use(logging, authenticator),
+            "POST /spaces/{guid}": stack.NewStack(handlers.NewNotifySpace(cloudController, courier)).Use(logging, authenticator),
         },
     }
 }
