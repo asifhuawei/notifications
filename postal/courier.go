@@ -75,8 +75,11 @@ func Error(w http.ResponseWriter, code int, errors []string) {
     w.Write(response)
 }
 
-func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
-    guid string, notificationType NotificationType, options Options) error {
+func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) error {
+    userLoader := NewUserLoader(courier.uaaClient, courier.logger, courier.cloudController)
+    spaceLoader := NewSpaceLoader(courier.cloudController)
+    templateLoader := NewTemplateLoader()
+    mailer := NewMailer(courier.guidGenerator, courier.logger, courier.mailClient)
 
     token, err := courier.uaaClient.GetClientToken()
     if err != nil {
@@ -84,13 +87,11 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     }
     courier.uaaClient.SetToken(token.Access)
 
-    userLoader := NewUserLoader(courier.uaaClient, courier.logger, courier.cloudController)
     users, err := userLoader.Load(notificationType, guid, token.Access)
     if err != nil {
         return err
     }
 
-    spaceLoader := NewSpaceLoader(courier.cloudController)
     space, organization, err := spaceLoader.Load(guid, token.Access, notificationType)
     if err != nil {
         return CCDownError("Cloud Controller is unavailable")
@@ -102,15 +103,13 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     clientID := clientToken.Claims["client_id"].(string)
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    templateLoader := NewTemplateLoader()
     templates, err := templateLoader.Load(options.Subject, notificationType)
     if err != nil {
         Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
         return nil
     }
 
-    mailer := NewMailer(templates, courier.guidGenerator, courier.logger, courier.mailClient)
-    messages := mailer.Deliver(users, options, space, organization, clientID)
+    messages := mailer.Deliver(templates, users, options, space, organization, clientID)
 
     responseBytes, err := json.Marshal(messages)
     if err != nil {

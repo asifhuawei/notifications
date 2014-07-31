@@ -21,8 +21,7 @@ var _ = Describe("Mailer", func() {
         buffer = bytes.NewBuffer([]byte{})
         logger = log.New(buffer, "", 0)
         mailClient = FakeMailClient{}
-        templates := postal.Templates{}
-        mailer = postal.NewMailer(templates, FakeGuidGenerator, logger, &mailClient)
+        mailer = postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
     })
 
     Describe("SendMailToUser", func() {

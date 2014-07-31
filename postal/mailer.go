@@ -10,27 +10,25 @@ import (
 
 type Mailer struct {
     guidGenerator GUIDGenerationFunc
-    templates     Templates
     logger        *log.Logger
     mailClient    mail.ClientInterface
 }
 
-func NewMailer(templates Templates, guidGenerator GUIDGenerationFunc, logger *log.Logger, mailClient mail.ClientInterface) Mailer {
+func NewMailer(guidGenerator GUIDGenerationFunc, logger *log.Logger, mailClient mail.ClientInterface) Mailer {
     return Mailer{
         guidGenerator: guidGenerator,
-        templates:     templates,
         logger:        logger,
         mailClient:    mailClient,
     }
 }
 
-func (mailer Mailer) Deliver(users map[string]uaa.User, options Options, space, organization, clientID string) NotifyResponse {
+func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, options Options, space, organization, clientID string) NotifyResponse {
     env := config.NewEnvironment()
     messages := NotifyResponse{}
     for userGUID, uaaUser := range users {
         if len(uaaUser.Emails) > 0 {
             context := NewMessageContext(uaaUser, options, env, space, organization,
-                clientID, mailer.guidGenerator, mailer.templates.Text, mailer.templates.HTML, mailer.templates.Subject)
+                clientID, mailer.guidGenerator, templates.Text, templates.HTML, templates.Subject)
 
             emailStatus := mailer.SendMailToUser(context, mailer.logger, mailer.mailClient)
             mailer.logger.Println(emailStatus)
