@@ -54,8 +54,14 @@ var _ = Describe("NotifyUser", func() {
                 },
             },
         }
+        fakeCC := NewFakeCloudController()
 
-        courier := postal.NewCourier(logger, NewFakeCloudController(), &uaaClient, &mailClient, FakeGuidGenerator)
+        userLoader := postal.NewUserLoader(&uaaClient, logger, fakeCC)
+        spaceLoader := postal.NewSpaceLoader(fakeCC)
+        templateLoader := postal.NewTemplateLoader()
+        mailer := postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
+
+        courier := postal.NewCourier(&uaaClient, userLoader, spaceLoader, templateLoader, mailer)
         handler = handlers.NewNotifyUser(courier)
     })
 

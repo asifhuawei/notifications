@@ -2,12 +2,9 @@ package postal
 
 import (
     "encoding/json"
-    "log"
     "net/http"
 
-    "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/config"
-    "github.com/cloudfoundry-incubator/notifications/mail"
     "github.com/dgrijalva/jwt-go"
     "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
@@ -52,16 +49,13 @@ type Courier struct {
     mailer         Mailer
 }
 
-func NewCourier(logger *log.Logger, cloudController cf.CloudControllerInterface,
-    uaaClient UAAInterface, mailClient mail.ClientInterface,
-    guidGenerator GUIDGenerationFunc) Courier {
-
+func NewCourier(uaaClient UAAInterface, userLoader UserLoader, spaceLoader SpaceLoader, templateLoader TemplateLoader, mailer Mailer) Courier {
     return Courier{
         uaaClient:      uaaClient,
-        userLoader:     NewUserLoader(uaaClient, logger, cloudController),
-        spaceLoader:    NewSpaceLoader(cloudController),
-        templateLoader: NewTemplateLoader(),
-        mailer:         NewMailer(guidGenerator, logger, mailClient),
+        userLoader:     userLoader,
+        spaceLoader:    spaceLoader,
+        templateLoader: templateLoader,
+        mailer:         mailer,
     }
 }
 

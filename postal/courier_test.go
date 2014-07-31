@@ -27,6 +27,10 @@ var _ = Describe("Courier", func() {
     var token string
     var buffer *bytes.Buffer
     var options postal.Options
+    var userLoader postal.UserLoader
+    var spaceLoader postal.SpaceLoader
+    var templateLoader postal.TemplateLoader
+    var mailer postal.Mailer
 
     BeforeEach(func() {
         tokenHeader := map[string]interface{}{
@@ -81,10 +85,14 @@ var _ = Describe("Courier", func() {
 
         buffer = bytes.NewBuffer([]byte{})
         logger = log.New(buffer, "", 0)
-
         mailClient = FakeMailClient{}
 
-        courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
+        userLoader = postal.NewUserLoader(&fakeUAA, logger, fakeCC)
+        spaceLoader = postal.NewSpaceLoader(fakeCC)
+        templateLoader = postal.NewTemplateLoader()
+        mailer = postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
+
+        courier = postal.NewCourier(&fakeUAA, userLoader, spaceLoader, templateLoader, mailer)
     })
 
     Describe("NofifyServeHTTP", func() {
@@ -231,7 +239,7 @@ var _ = Describe("Courier", func() {
                 })
 
                 It("returns necessary info in the response for the sent mail", func() {
-                    courier = postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
+                    courier = postal.NewCourier(&fakeUAA, userLoader, spaceLoader, templateLoader, mailer)
                     err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
                     if err != nil {
                         panic(err)

@@ -99,7 +99,12 @@ var _ = Describe("NotifySpace", func() {
                 },
             }
 
-            courier := postal.NewCourier(logger, fakeCC, &fakeUAA, &mailClient, FakeGuidGenerator)
+            userLoader := postal.NewUserLoader(&fakeUAA, logger, fakeCC)
+            spaceLoader := postal.NewSpaceLoader(fakeCC)
+            templateLoader := postal.NewTemplateLoader()
+            mailer := postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
+
+            courier := postal.NewCourier(&fakeUAA, userLoader, spaceLoader, templateLoader, mailer)
             handler = handlers.NewNotifySpace(fakeCC, courier)
         })
 

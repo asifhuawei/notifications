@@ -13,7 +13,7 @@ import (
     "github.com/cloudfoundry-incubator/notifications/web/handlers"
     "github.com/cloudfoundry-incubator/notifications/web/middleware"
     "github.com/gorilla/mux"
-    uuid "github.com/nu7hatch/gouuid"
+    "github.com/nu7hatch/gouuid"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
     "github.com/ryanmoran/stack"
 )
@@ -40,7 +40,12 @@ func NewRouter() Router {
 
     cloudController := cf.NewCloudController(env.CCHost)
 
-    courier := postal.NewCourier(logger, cloudController, &uaaClient, &mailClient, uuid.NewV4)
+    userLoader := postal.NewUserLoader(&uaaClient, logger, cloudController)
+    spaceLoader := postal.NewSpaceLoader(cloudController)
+    templateLoader := postal.NewTemplateLoader()
+    mailer := postal.NewMailer(uuid.NewV4, logger, &mailClient)
+
+    courier := postal.NewCourier(&uaaClient, userLoader, spaceLoader, templateLoader, mailer)
 
     return Router{
         stacks: map[string]stack.Stack{
