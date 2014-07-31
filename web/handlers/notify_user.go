@@ -33,5 +33,5 @@ func (handler NotifyUser) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
     rawToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 
-    handler.courier.Dispatch(w, rawToken, userGUID, postal.IsUser, params.ToOptions())
+    handler.courier.Dispatch(rawToken, userGUID, postal.IsUser, params.ToOptions())
 }

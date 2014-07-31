@@ -48,7 +48,7 @@ func (handler NotifySpace) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     spaceGUID := strings.TrimPrefix(req.URL.Path, "/spaces/")
     rawToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 
-    _, err = handler.courier.Dispatch(w, rawToken, spaceGUID, postal.IsSpace, params.ToOptions())
+    _, err = handler.courier.Dispatch(rawToken, spaceGUID, postal.IsSpace, params.ToOptions())
     if err != nil {
         switch err.(type) {
         case postal.CCDownError:

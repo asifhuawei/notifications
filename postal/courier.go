@@ -1,9 +1,6 @@
 package postal
 
 import (
-    "encoding/json"
-    "net/http"
-
     "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/dgrijalva/jwt-go"
     "github.com/nu7hatch/gouuid"
@@ -63,7 +60,7 @@ func NewCourier(uaaClient UAAInterface, userLoader UserLoader, spaceLoader Space
     }
 }
 
-func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) ([]Response, error) {
+func (courier Courier) Dispatch(rawToken, guid string, notificationType NotificationType, options Options) ([]Response, error) {
     responses := []Response{}
 
     token, err := courier.uaaClient.GetClientToken()
@@ -93,13 +90,6 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
     }
 
     responses = courier.mailer.Deliver(templates, users, options, space, organization, clientID)
-
-    responseBytes, err := json.Marshal(responses)
-    if err != nil {
-        panic(err)
-    }
-    w.WriteHeader(http.StatusOK)
-    w.Write(responseBytes)
 
     return responses, nil
 }
