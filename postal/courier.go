@@ -44,22 +44,24 @@ type Options struct {
 }
 
 type Courier struct {
-    cloudController cf.CloudControllerInterface
-    logger          *log.Logger
-    uaaClient       UAAInterface
-    guidGenerator   GUIDGenerationFunc
-    mailClient      mail.ClientInterface
+    uaaClient UAAInterface
+
+    userLoader     UserLoader
+    spaceLoader    SpaceLoader
+    templateLoader TemplateLoader
+    mailer         Mailer
 }
 
 func NewCourier(logger *log.Logger, cloudController cf.CloudControllerInterface,
     uaaClient UAAInterface, mailClient mail.ClientInterface,
     guidGenerator GUIDGenerationFunc) Courier {
+
     return Courier{
-        cloudController: cloudController,
-        logger:          logger,
-        uaaClient:       uaaClient,
-        guidGenerator:   guidGenerator,
-        mailClient:      mailClient,
+        uaaClient:      uaaClient,
+        userLoader:     NewUserLoader(uaaClient, logger, cloudController),
+        spaceLoader:    NewSpaceLoader(cloudController),
+        templateLoader: NewTemplateLoader(),
+        mailer:         NewMailer(guidGenerator, logger, mailClient),
     }
 }
 
@@ -76,23 +78,18 @@ func Error(w http.ResponseWriter, code int, errors []string) {
 }
 
 func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) error {
-    userLoader := NewUserLoader(courier.uaaClient, courier.logger, courier.cloudController)
-    spaceLoader := NewSpaceLoader(courier.cloudController)
-    templateLoader := NewTemplateLoader()
-    mailer := NewMailer(courier.guidGenerator, courier.logger, courier.mailClient)
-
     token, err := courier.uaaClient.GetClientToken()
     if err != nil {
         panic(err)
     }
     courier.uaaClient.SetToken(token.Access)
 
-    users, err := userLoader.Load(notificationType, guid, token.Access)
+    users, err := courier.userLoader.Load(notificationType, guid, token.Access)
     if err != nil {
         return err
     }
 
-    space, organization, err := spaceLoader.Load(guid, token.Access, notificationType)
+    space, organization, err := courier.spaceLoader.Load(guid, token.Access, notificationType)
     if err != nil {
         return CCDownError("Cloud Controller is unavailable")
     }
@@ -103,13 +100,13 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
     clientID := clientToken.Claims["client_id"].(string)
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    templates, err := templateLoader.Load(options.Subject, notificationType)
+    templates, err := courier.templateLoader.Load(options.Subject, notificationType)
     if err != nil {
         Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
         return nil
     }
 
-    messages := mailer.Deliver(templates, users, options, space, organization, clientID)
+    messages := courier.mailer.Deliver(templates, users, options, space, organization, clientID)
 
     responseBytes, err := json.Marshal(messages)
     if err != nil {
