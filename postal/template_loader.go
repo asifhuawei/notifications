@@ -21,14 +21,12 @@ type Templates struct {
 }
 
 type TemplateLoader struct {
-    ReadFile   func(string) (string, error)
-    FileExists func(string) bool
+    fs FileSystemInterface
 }
 
-func NewTemplateLoader() TemplateLoader {
+func NewTemplateLoader(fs FileSystemInterface) TemplateLoader {
     return TemplateLoader{
-        ReadFile:   file_utilities.ReadFile,
-        FileExists: file_utilities.FileExists,
+        fs: fs,
     }
 }
 
@@ -83,9 +81,28 @@ func (loader TemplateLoader) LoadTemplate(filename string) (string, error) {
     env := config.NewEnvironment()
 
     overRidePath := env.RootPath + "/templates/overrides/" + filename
-    if loader.FileExists(overRidePath) {
-        return loader.ReadFile(overRidePath)
+    if loader.fs.Exists(overRidePath) {
+        return loader.fs.Read(overRidePath)
     }
 
-    return loader.ReadFile(env.RootPath + "/templates/" + filename)
+    return loader.fs.Read(env.RootPath + "/templates/" + filename)
+}
+
+type FileSystem struct{}
+
+func NewFileSystem() FileSystem {
+    return FileSystem{}
+}
+
+func (fs FileSystem) Exists(path string) bool {
+    return file_utilities.FileExists(path)
+}
+
+func (fs FileSystem) Read(path string) (string, error) {
+    return file_utilities.ReadFile(path)
+}
+
+type FileSystemInterface interface {
+    Exists(string) bool
+    Read(string) (string, error)
 }

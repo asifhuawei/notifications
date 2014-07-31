@@ -23,3 +23,9 @@ type UAAGenericError string
 func (err UAAGenericError) Error() string {
     return string(err)
 }
+
+type TemplateLoadError string
+
+func (err TemplateLoadError) Error() string {
+    return string(err)
+}

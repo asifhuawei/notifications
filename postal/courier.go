@@ -96,8 +96,7 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     templates, err := courier.templateLoader.Load(options.Subject, notificationType)
     if err != nil {
-        Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
-        return nil
+        return TemplateLoadError("An email template could not be loaded")
     }
 
     messages := courier.mailer.Deliver(templates, users, options, space, organization, clientID)

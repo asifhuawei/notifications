@@ -10,6 +10,7 @@ import (
     "strings"
 
     "github.com/cloudfoundry-incubator/notifications/cf"
+    "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/cloudfoundry-incubator/notifications/postal"
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 
@@ -31,6 +32,8 @@ var _ = Describe("Courier", func() {
     var spaceLoader postal.SpaceLoader
     var templateLoader postal.TemplateLoader
     var mailer postal.Mailer
+    var fs FakeFileSystem
+    var env config.Environment
 
     BeforeEach(func() {
         tokenHeader := map[string]interface{}{
@@ -86,16 +89,18 @@ var _ = Describe("Courier", func() {
         buffer = bytes.NewBuffer([]byte{})
         logger = log.New(buffer, "", 0)
         mailClient = FakeMailClient{}
+        env = config.NewEnvironment()
+        fs = NewFakeFileSystem(env)
 
         userLoader = postal.NewUserLoader(&fakeUAA, logger, fakeCC)
         spaceLoader = postal.NewSpaceLoader(fakeCC)
-        templateLoader = postal.NewTemplateLoader()
+        templateLoader = postal.NewTemplateLoader(&fs)
         mailer = postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
 
         courier = postal.NewCourier(&fakeUAA, userLoader, spaceLoader, templateLoader, mailer)
     })
 
-    Describe("NofifyServeHTTP", func() {
+    Describe("Dispatch", func() {
         Context("when the request is valid", func() {
             BeforeEach(func() {
                 options = postal.Options{
@@ -141,6 +146,16 @@ var _ = Describe("Courier", func() {
                         err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError("")))
+                    })
+                })
+
+                Context("when a template cannot be loaded", func() {
+                    It("returns a TemplateLoadError", func() {
+                        delete(fs.Files, env.RootPath+"/templates/user_body.text")
+
+                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+
+                        Expect(err).To(BeAssignableToTypeOf(postal.TemplateLoadError("")))
                     })
                 })
             })

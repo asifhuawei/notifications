@@ -58,7 +58,8 @@ var _ = Describe("NotifyUser", func() {
 
         userLoader := postal.NewUserLoader(&uaaClient, logger, fakeCC)
         spaceLoader := postal.NewSpaceLoader(fakeCC)
-        templateLoader := postal.NewTemplateLoader()
+        fs := postal.NewFileSystem()
+        templateLoader := postal.NewTemplateLoader(&fs)
         mailer := postal.NewMailer(FakeGuidGenerator, logger, &mailClient)
 
         courier := postal.NewCourier(&uaaClient, userLoader, spaceLoader, templateLoader, mailer)

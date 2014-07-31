@@ -1,161 +1,126 @@
 package postal_test
 
 import (
-    "strings"
+    "errors"
 
+    "github.com/cloudfoundry-incubator/notifications/config"
     "github.com/cloudfoundry-incubator/notifications/postal"
 
     . "github.com/onsi/ginkgo"
     . "github.com/onsi/gomega"
 )
 
+type FakeFileSystem struct {
+    Files map[string]string
+}
+
+func NewFakeFileSystem(env config.Environment) FakeFileSystem {
+    return FakeFileSystem{
+        Files: map[string]string{
+            env.RootPath + "/templates/space_body.text":  "default-space-text",
+            env.RootPath + "/templates/subject.missing":  "default-missing-subject",
+            env.RootPath + "/templates/space_body.html":  "default-space-html",
+            env.RootPath + "/templates/subject.provided": "default-provided-subject",
+            env.RootPath + "/templates/user_body.text":   "default-user-text",
+            env.RootPath + "/templates/user_body.html":   "default-user-html",
+        },
+    }
+}
+
+func (fs FakeFileSystem) Exists(path string) bool {
+    _, ok := fs.Files[path]
+    return ok
+}
+
+func (fs FakeFileSystem) Read(path string) (string, error) {
+    if file, ok := fs.Files[path]; ok {
+        return file, nil
+    }
+    return "", errors.New("File does not exist")
+}
+
 var _ = Describe("TemplateLoader", func() {
     var loader postal.TemplateLoader
+    var fs FakeFileSystem
+    var env config.Environment
 
     BeforeEach(func() {
-        loader = postal.NewTemplateLoader()
+        env = config.NewEnvironment()
+        fs = NewFakeFileSystem(env)
+        loader = postal.NewTemplateLoader(&fs)
     })
 
     Describe("Load", func() {
         Context("when subject is not set in the params", func() {
             It("returns the subject.missing template", func() {
-                loader.ReadFile = func(path string) (string, error) {
-                    if strings.Contains(path, "missing") {
-                        return "the missing subject", nil
-                    }
-                    return "incorrect", nil
-                }
-
-                loader.FileExists = func(path string) bool {
-                    return false
-                }
-
-                subject := ""
-
-                templates, err := loader.Load(subject, postal.IsSpace)
-                if err != nil {
-                    panic(err)
-                }
-
-                Expect(templates.Subject).To(Equal("the missing subject"))
-            })
-        })
-
-        Context("when subject is set in the params", func() {
-            It("returns the subject.provided template", func() {
-                loader.ReadFile = func(path string) (string, error) {
-                    if strings.Contains(path, "provided") {
-                        return "the provided subject", nil
-                    }
-                    return "incorrect", nil
-                }
-
-                loader.FileExists = func(path string) bool {
-                    return false
-                }
-
-                subject := "is provided"
-
-                templates, err := loader.Load(subject, postal.IsSpace)
-                if err != nil {
-                    panic(err)
-                }
-
-                Expect(templates.Subject).To(Equal("the provided subject"))
-            })
-        })
-
-        Context("notificationType is IsSpace", func() {
-            It("returns the space templates", func() {
-                loader.ReadFile = func(path string) (string, error) {
-                    if strings.Contains(path, "space") && strings.Contains(path, "text") {
-                        return "space plain text", nil
-                    }
-                    if strings.Contains(path, "space") && strings.Contains(path, "html") {
-                        return "space html code", nil
-                    }
-                    return "incorrect", nil
-                }
-
-                loader.FileExists = func(path string) bool {
-                    return false
-                }
-
                 templates, err := loader.Load("", postal.IsSpace)
                 if err != nil {
                     panic(err)
                 }
 
-                Expect(templates.Text).To(Equal("space plain text"))
-                Expect(templates.HTML).To(Equal("space html code"))
+                Expect(templates.Subject).To(Equal("default-missing-subject"))
+            })
+        })
+
+        Context("when subject is set in the params", func() {
+            It("returns the subject.provided template", func() {
+                templates, err := loader.Load("is provided", postal.IsSpace)
+                if err != nil {
+                    panic(err)
+                }
+
+                Expect(templates.Subject).To(Equal("default-provided-subject"))
+            })
+        })
+
+        Context("notificationType is IsSpace", func() {
+            It("returns the space templates", func() {
+                templates, err := loader.Load("", postal.IsSpace)
+                if err != nil {
+                    panic(err)
+                }
+
+                Expect(templates.Text).To(Equal("default-space-text"))
+                Expect(templates.HTML).To(Equal("default-space-html"))
             })
         })
 
         Context("notificationType is IsSpace", func() {
             It("returns the user templates", func() {
-                loader.ReadFile = func(path string) (string, error) {
-                    if strings.Contains(path, "user") && strings.Contains(path, "text") {
-                        return "user plain text", nil
-                    }
-                    if strings.Contains(path, "user") && strings.Contains(path, "html") {
-                        return "user html code", nil
-                    }
-                    return "incorrect", nil
-                }
-
-                loader.FileExists = func(path string) bool {
-                    return false
-                }
-
                 templates, err := loader.Load("", postal.IsUser)
                 if err != nil {
                     panic(err)
                 }
 
-                Expect(templates.Text).To(Equal("user plain text"))
-                Expect(templates.HTML).To(Equal("user html code"))
+                Expect(templates.Text).To(Equal("default-user-text"))
+                Expect(templates.HTML).To(Equal("default-user-html"))
             })
         })
     })
 
     Describe("LoadTemplate", func() {
-        BeforeEach(func() {
-            loader.ReadFile = func(path string) (string, error) {
-                switch {
-                case strings.Contains(path, "overrides"):
-                    return "override text", nil
-                default:
-                    return "default text", nil
-                }
-            }
-        })
-
         Context("when there are no template overrides", func() {
             It("loads the templates from the default location", func() {
-                loader.FileExists = func(path string) bool {
-                    return false
-                }
-
                 text, err := loader.LoadTemplate("user_body.text")
                 if err != nil {
                     panic(err)
                 }
-                Expect(text).To(Equal("default text"))
+                Expect(text).To(Equal("default-user-text"))
             })
         })
 
         Context("when a template has an override set", func() {
-            It("replaces the default template with the user provided one", func() {
-                loader.FileExists = func(path string) bool {
-                    return true
-                }
+            BeforeEach(func() {
+                fs.Files[env.RootPath+"/templates/overrides/user_body.text"] = "override-user-text"
+            })
 
+            It("replaces the default template with the user provided one", func() {
                 text, err := loader.LoadTemplate("user_body.text")
                 if err != nil {
                     panic(err)
                 }
 
-                Expect(text).To(Equal("override text"))
+                Expect(text).To(Equal("override-user-text"))
             })
         })
     })

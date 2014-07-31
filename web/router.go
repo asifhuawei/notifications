@@ -42,7 +42,8 @@ func NewRouter() Router {
 
     userLoader := postal.NewUserLoader(&uaaClient, logger, cloudController)
     spaceLoader := postal.NewSpaceLoader(cloudController)
-    templateLoader := postal.NewTemplateLoader()
+    fs := postal.NewFileSystem()
+    templateLoader := postal.NewTemplateLoader(&fs)
     mailer := postal.NewMailer(uuid.NewV4, logger, &mailClient)
 
     courier := postal.NewCourier(&uaaClient, userLoader, spaceLoader, templateLoader, mailer)
