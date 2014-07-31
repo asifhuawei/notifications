@@ -109,37 +109,8 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
         return nil
     }
 
-    env := config.NewEnvironment()
-    messages := NotifyResponse{}
-    for userGUID, uaaUser := range users {
-        if len(uaaUser.Emails) > 0 {
-            context := NewMessageContext(uaaUser, options, env, space, organization,
-                clientID, courier.guidGenerator, templates.Text, templates.HTML, templates.Subject)
-
-            emailStatus := courier.SendMailToUser(context, courier.logger, courier.mailClient)
-            courier.logger.Println(emailStatus)
-
-            mailInfo := make(map[string]string)
-            mailInfo["status"] = emailStatus
-            mailInfo["recipient"] = uaaUser.ID
-            mailInfo["notification_id"] = context.MessageID
-
-            messages = append(messages, mailInfo)
-        } else {
-            var status string
-            if uaaUser.ID == "" {
-                status = StatusNotFound
-            } else {
-                status = StatusNoAddress
-            }
-            mailInfo := make(map[string]string)
-            mailInfo["status"] = status
-            mailInfo["recipient"] = userGUID
-            mailInfo["notification_id"] = ""
-
-            messages = append(messages, mailInfo)
-        }
-    }
+    mailer := NewMailer(templates, courier.guidGenerator, courier.logger, courier.mailClient)
+    messages := mailer.Deliver(users, options, space, organization, clientID)
 
     responseBytes, err := json.Marshal(messages)
     if err != nil {
@@ -150,15 +121,4 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken,
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     return nil
-}
-
-func (courier Courier) SendMailToUser(context MessageContext, logger *log.Logger, mailClient mail.ClientInterface) string {
-    logger.Printf("Sending email to %s", context.To)
-    status, message, err := SendMail(mailClient, context)
-    if err != nil {
-        panic(err)
-    }
-
-    logger.Print(message.Data())
-    return status
 }

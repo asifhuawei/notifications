@@ -259,46 +259,4 @@ var _ = Describe("Courier", func() {
             })
         })
     })
-
-    Describe("SendMailToUser", func() {
-        It("logs the email address of the recipient and returns the status", func() {
-            messageContext := postal.MessageContext{
-                To: "fake-user@example.com",
-            }
-
-            mailClient = FakeMailClient{}
-
-            status := courier.SendMailToUser(messageContext, logger, &mailClient)
-
-            Expect(buffer.String()).To(ContainSubstring("Sending email to fake-user@example.com"))
-            Expect(status).To(Equal("delivered"))
-        })
-
-        It("logs the message envelope", func() {
-            messageContext := postal.MessageContext{
-                To:                     "fake-user@example.com",
-                From:                   "from@email.com",
-                Subject:                "the subject",
-                Text:                   "body content",
-                KindDescription:        "the kind description",
-                PlainTextEmailTemplate: "{{.Text}}",
-                SubjectEmailTemplate:   "{{.Subject}}",
-            }
-
-            mailClient = FakeMailClient{}
-
-            courier.SendMailToUser(messageContext, logger, &mailClient)
-
-            data := []string{
-                "From: from@email.com",
-                "To: fake-user@example.com",
-                "Subject: the subject",
-                `body content`,
-            }
-            results := strings.Split(buffer.String(), "\n")
-            for _, item := range data {
-                Expect(results).To(ContainElement(item))
-            }
-        })
-    })
 })
