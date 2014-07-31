@@ -59,18 +59,6 @@ func NewCourier(uaaClient UAAInterface, userLoader UserLoader, spaceLoader Space
     }
 }
 
-func Error(w http.ResponseWriter, code int, errors []string) {
-    response, err := json.Marshal(NotifyFailureResponse{
-        "errors": errors,
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    w.WriteHeader(code)
-    w.Write(response)
-}
-
 func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) error {
     token, err := courier.uaaClient.GetClientToken()
     if err != nil {
@@ -93,7 +81,6 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
     })
     clientID := clientToken.Claims["client_id"].(string)
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
     templates, err := courier.templateLoader.Load(options.Subject, notificationType)
     if err != nil {
         return TemplateLoadError("An email template could not be loaded")
@@ -107,7 +94,6 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
     }
     w.WriteHeader(http.StatusOK)
     w.Write(responseBytes)
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     return nil
 }
