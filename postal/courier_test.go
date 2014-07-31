@@ -2,10 +2,8 @@ package postal_test
 
 import (
     "bytes"
-    "encoding/json"
     "errors"
     "log"
-    "net/http"
     "net/http/httptest"
     "strings"
 
@@ -116,7 +114,7 @@ var _ = Describe("Courier", func() {
                 Context("when Cloud Controller is unavailable to load space users", func() {
                     It("returns a CCDownError error", func() {
                         fakeCC.GetUsersBySpaceGuidError = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
+                        _, err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.CCDownError("")))
                     })
@@ -125,7 +123,7 @@ var _ = Describe("Courier", func() {
                 Context("when Cloud Controller is unavailable to load a space", func() {
                     It("returns a CCDownError error", func() {
                         fakeCC.LoadSpaceError = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
+                        _, err := courier.Dispatch(writer, token, "user-123", postal.IsSpace, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.CCDownError("")))
                     })
@@ -134,7 +132,7 @@ var _ = Describe("Courier", func() {
                 Context("when UAA cannot be reached", func() {
                     It("returns a UAADownError", func() {
                         fakeUAA.ErrorForUserByID = uaa.NewFailure(404, []byte("Requested route ('uaa.10.244.0.34.xip.io') does not exist"))
-                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                        _, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.UAADownError("")))
                     })
@@ -143,7 +141,7 @@ var _ = Describe("Courier", func() {
                 Context("when UAA fails for unknown reasons", func() {
                     It("returns a UAAGenericError", func() {
                         fakeUAA.ErrorForUserByID = errors.New("BOOM!")
-                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                        _, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.UAAGenericError("")))
                     })
@@ -153,7 +151,7 @@ var _ = Describe("Courier", func() {
                     It("returns a TemplateLoadError", func() {
                         delete(fs.Files, env.RootPath+"/templates/user_body.text")
 
-                        err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                        _, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
 
                         Expect(err).To(BeAssignableToTypeOf(postal.TemplateLoadError("")))
                     })
@@ -163,57 +161,39 @@ var _ = Describe("Courier", func() {
             Context("when the SMTP server fails to deliver the mail", func() {
                 It("returns a status indicating that delivery failed", func() {
                     mailClient.errorOnSend = true
-                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    responses, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
                     if err != nil {
                         panic(err)
                     }
 
-                    Expect(writer.Code).To(Equal(http.StatusOK))
-                    parsed := []map[string]string{}
-                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    Expect(parsed[0]["status"]).To(Equal("failed"))
+                    Expect(len(responses)).To(Equal(1))
+                    Expect(responses[0].Status).To(Equal("failed"))
                 })
             })
 
             Context("when the SMTP server cannot be reached", func() {
                 It("returns a status indicating that the server is unavailable", func() {
                     mailClient.errorOnConnect = true
-                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    responses, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
                     if err != nil {
                         panic(err)
                     }
 
-                    Expect(writer.Code).To(Equal(http.StatusOK))
-                    parsed := []map[string]string{}
-                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    Expect(parsed[0]["status"]).To(Equal("unavailable"))
+                    Expect(len(responses)).To(Equal(1))
+                    Expect(responses[0].Status).To(Equal("unavailable"))
                 })
             })
 
             Context("when UAA cannot find the user", func() {
                 It("returns that the user in the response with status notfound", func() {
-                    err := courier.Dispatch(writer, token, "user-789", postal.IsUser, options)
+                    responses, err := courier.Dispatch(writer, token, "user-789", postal.IsUser, options)
                     if err != nil {
                         panic(err)
                     }
 
-                    Expect(writer.Code).To(Equal(http.StatusOK))
-
-                    response := []map[string]string{}
-                    err = json.Unmarshal(writer.Body.Bytes(), &response)
-                    if err != nil {
-                        panic(err)
-                    }
-                    Expect(response[0]["status"]).To(Equal(postal.StatusNotFound))
-                    Expect(response[0]["recipient"]).To(Equal("user-789"))
+                    Expect(len(responses)).To(Equal(1))
+                    Expect(responses[0].Status).To(Equal(postal.StatusNotFound))
+                    Expect(responses[0].Recipient).To(Equal("user-789"))
                 })
             })
 
@@ -224,25 +204,19 @@ var _ = Describe("Courier", func() {
                         Emails: []string{},
                     }
 
-                    err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
+                    responses, err := courier.Dispatch(writer, token, "user-123", postal.IsUser, options)
                     if err != nil {
                         panic(err)
                     }
 
-                    response := []map[string]string{}
-                    err = json.Unmarshal(writer.Body.Bytes(), &response)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    Expect(writer.Code).To(Equal(http.StatusOK))
-                    Expect(response[0]["status"]).To(Equal(postal.StatusNoAddress))
+                    Expect(len(responses)).To(Equal(1))
+                    Expect(responses[0].Status).To(Equal(postal.StatusNoAddress))
                 })
             })
 
             Context("When load Users returns multiple users", func() {
                 It("logs the UUIDs of all recipients", func() {
-                    err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    _, err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
                     if err != nil {
                         panic(err)
                     }
@@ -255,28 +229,22 @@ var _ = Describe("Courier", func() {
 
                 It("returns necessary info in the response for the sent mail", func() {
                     courier = postal.NewCourier(&fakeUAA, userLoader, spaceLoader, templateLoader, mailer)
-                    err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
+                    responses, err := courier.Dispatch(writer, token, "space-001", postal.IsSpace, options)
                     if err != nil {
                         panic(err)
                     }
 
-                    Expect(writer.Code).To(Equal(http.StatusOK))
-                    parsed := []map[string]string{}
-                    err = json.Unmarshal(writer.Body.Bytes(), &parsed)
-                    if err != nil {
-                        panic(err)
-                    }
-
-                    Expect(parsed).To(ContainElement(map[string]string{
-                        "recipient":       "user-123",
-                        "status":          "delivered",
-                        "notification_id": "deadbeef-aabb-ccdd-eeff-001122334455",
+                    Expect(len(responses)).To(Equal(2))
+                    Expect(responses).To(ContainElement(postal.Response{
+                        Recipient:      "user-123",
+                        Status:         "delivered",
+                        NotificationID: "deadbeef-aabb-ccdd-eeff-001122334455",
                     }))
 
-                    Expect(parsed).To(ContainElement(map[string]string{
-                        "recipient":       "user-456",
-                        "status":          "delivered",
-                        "notification_id": "deadbeef-aabb-ccdd-eeff-001122334455",
+                    Expect(responses).To(ContainElement(postal.Response{
+                        Recipient:      "user-456",
+                        Status:         "delivered",
+                        NotificationID: "deadbeef-aabb-ccdd-eeff-001122334455",
                     }))
                 })
             })

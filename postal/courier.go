@@ -10,8 +10,12 @@ import (
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 )
 
-type NotifyResponse []map[string]string
-type NotifyFailureResponse map[string][]string
+type Response struct {
+    Status         string `json:"status"`
+    Recipient      string `json:"recipient"`
+    NotificationID string `json:"notification_id"`
+}
+
 type NotificationType int
 
 const (
@@ -59,7 +63,9 @@ func NewCourier(uaaClient UAAInterface, userLoader UserLoader, spaceLoader Space
     }
 }
 
-func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) error {
+func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, notificationType NotificationType, options Options) ([]Response, error) {
+    responses := []Response{}
+
     token, err := courier.uaaClient.GetClientToken()
     if err != nil {
         panic(err)
@@ -68,12 +74,12 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
 
     users, err := courier.userLoader.Load(notificationType, guid, token.Access)
     if err != nil {
-        return err
+        return responses, err
     }
 
     space, organization, err := courier.spaceLoader.Load(guid, token.Access, notificationType)
     if err != nil {
-        return CCDownError("Cloud Controller is unavailable")
+        return responses, CCDownError("Cloud Controller is unavailable")
     }
 
     clientToken, _ := jwt.Parse(rawToken, func(t *jwt.Token) ([]byte, error) {
@@ -83,17 +89,17 @@ func (courier Courier) Dispatch(w http.ResponseWriter, rawToken, guid string, no
 
     templates, err := courier.templateLoader.Load(options.Subject, notificationType)
     if err != nil {
-        return TemplateLoadError("An email template could not be loaded")
+        return responses, TemplateLoadError("An email template could not be loaded")
     }
 
-    messages := courier.mailer.Deliver(templates, users, options, space, organization, clientID)
+    responses = courier.mailer.Deliver(templates, users, options, space, organization, clientID)
 
-    responseBytes, err := json.Marshal(messages)
+    responseBytes, err := json.Marshal(responses)
     if err != nil {
         panic(err)
     }
     w.WriteHeader(http.StatusOK)
     w.Write(responseBytes)
 
-    return nil
+    return responses, nil
 }

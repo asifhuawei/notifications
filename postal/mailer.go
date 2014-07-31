@@ -22,9 +22,10 @@ func NewMailer(guidGenerator GUIDGenerationFunc, logger *log.Logger, mailClient 
     }
 }
 
-func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, options Options, space, organization, clientID string) NotifyResponse {
+func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, options Options, space, organization, clientID string) []Response {
     env := config.NewEnvironment()
-    messages := NotifyResponse{}
+    messages := []Response{}
+
     for userGUID, uaaUser := range users {
         if len(uaaUser.Emails) > 0 {
             context := NewMessageContext(uaaUser, options, env, space, organization,
@@ -33,10 +34,11 @@ func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, opt
             emailStatus := mailer.SendMailToUser(context, mailer.logger, mailer.mailClient)
             mailer.logger.Println(emailStatus)
 
-            mailInfo := make(map[string]string)
-            mailInfo["status"] = emailStatus
-            mailInfo["recipient"] = uaaUser.ID
-            mailInfo["notification_id"] = context.MessageID
+            mailInfo := Response{
+                Status:         emailStatus,
+                Recipient:      uaaUser.ID,
+                NotificationID: context.MessageID,
+            }
 
             messages = append(messages, mailInfo)
         } else {
@@ -46,10 +48,11 @@ func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, opt
             } else {
                 status = StatusNoAddress
             }
-            mailInfo := make(map[string]string)
-            mailInfo["status"] = status
-            mailInfo["recipient"] = userGUID
-            mailInfo["notification_id"] = ""
+            mailInfo := Response{
+                Status:         status,
+                Recipient:      userGUID,
+                NotificationID: "",
+            }
 
             messages = append(messages, mailInfo)
         }
