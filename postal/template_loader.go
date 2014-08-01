@@ -1,9 +1,6 @@
 package postal
 
-import (
-    "github.com/cloudfoundry-incubator/notifications/config"
-    "github.com/cloudfoundry-incubator/notifications/file_utilities"
-)
+import "github.com/cloudfoundry-incubator/notifications/config"
 
 const (
     SubjectMissingTemplateName  = "subject.missing"
@@ -86,23 +83,4 @@ func (loader TemplateLoader) LoadTemplate(filename string) (string, error) {
     }
 
     return loader.fs.Read(env.RootPath + "/templates/" + filename)
-}
-
-type FileSystem struct{}
-
-func NewFileSystem() FileSystem {
-    return FileSystem{}
-}
-
-func (fs FileSystem) Exists(path string) bool {
-    return file_utilities.FileExists(path)
-}
-
-func (fs FileSystem) Read(path string) (string, error) {
-    return file_utilities.ReadFile(path)
-}
-
-type FileSystemInterface interface {
-    Exists(string) bool
-    Read(string) (string, error)
 }
