@@ -40,13 +40,13 @@ var _ = Describe("Mailer", func() {
 
         It("logs the message envelope", func() {
             messageContext := postal.MessageContext{
-                To:                     "fake-user@example.com",
-                From:                   "from@email.com",
-                Subject:                "the subject",
-                Text:                   "body content",
-                KindDescription:        "the kind description",
-                PlainTextEmailTemplate: "{{.Text}}",
-                SubjectEmailTemplate:   "{{.Subject}}",
+                To:              "fake-user@example.com",
+                From:            "from@email.com",
+                Subject:         "the subject",
+                Text:            "body content",
+                KindDescription: "the kind description",
+                TextTemplate:    "{{.Text}}",
+                SubjectTemplate: "{{.Subject}}",
             }
 
             mailClient = FakeMailClient{}

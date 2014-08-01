@@ -8,6 +8,12 @@ import (
     "github.com/pivotal-cf/uaa-sso-golang/uaa"
 )
 
+const (
+    MailServerUnavailable  = "unavailable"
+    MailDeliveryFailed     = "failed"
+    MailDeliverySuccessful = "delivered"
+)
+
 type Mailer struct {
     guidGenerator GUIDGenerationFunc
     logger        *log.Logger
@@ -29,7 +35,7 @@ func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, opt
     for userGUID, uaaUser := range users {
         if len(uaaUser.Emails) > 0 {
             context := NewMessageContext(uaaUser, options, env, space, organization,
-                clientID, mailer.guidGenerator, templates.Text, templates.HTML, templates.Subject)
+                clientID, mailer.guidGenerator, templates)
 
             emailStatus := mailer.SendMailToUser(context, mailer.logger, mailer.mailClient)
             mailer.logger.Println(emailStatus)
@@ -62,11 +68,29 @@ func (mailer Mailer) Deliver(templates Templates, users map[string]uaa.User, opt
 
 func (mailer Mailer) SendMailToUser(context MessageContext, logger *log.Logger, mailClient mail.ClientInterface) string {
     logger.Printf("Sending email to %s", context.To)
-    status, message, err := SendMail(mailClient, context)
+    packager := NewPackager()
+
+    message, err := packager.Pack(context)
     if err != nil {
         panic(err)
     }
 
+    status := mailer.SendMail(message)
+
     logger.Print(message.Data())
     return status
+}
+
+func (mailer Mailer) SendMail(msg mail.Message) string {
+    err := mailer.mailClient.Connect()
+    if err != nil {
+        return MailServerUnavailable
+    }
+
+    err = mailer.mailClient.Send(msg)
+    if err != nil {
+        return MailDeliveryFailed
+    }
+
+    return MailDeliverySuccessful
 }
