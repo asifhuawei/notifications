@@ -1,6 +1,7 @@
 package handlers
 
 import (
+    "encoding/json"
     "net/http"
     "strings"
 
@@ -8,10 +9,10 @@ import (
 )
 
 type NotifyUser struct {
-    courier postal.Courier
+    courier postal.CourierInterface
 }
 
-func NewNotifyUser(courier postal.Courier) NotifyUser {
+func NewNotifyUser(courier postal.CourierInterface) NotifyUser {
     return NotifyUser{
         courier: courier,
     }
@@ -33,5 +34,28 @@ func (handler NotifyUser) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
     rawToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 
-    handler.courier.Dispatch(rawToken, userGUID, postal.IsUser, params.ToOptions())
+    responses, err := handler.courier.Dispatch(rawToken, userGUID, postal.IsUser, params.ToOptions())
+    if err != nil {
+        switch err.(type) {
+        case postal.CCDownError:
+            Error(w, http.StatusBadGateway, []string{"Cloud Controller is unavailable"})
+        case postal.UAADownError:
+            Error(w, http.StatusBadGateway, []string{"UAA is unavailable"})
+        case postal.UAAGenericError:
+            Error(w, http.StatusBadGateway, []string{err.Error()})
+        case postal.TemplateLoadError:
+            Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
+        default:
+            panic(err)
+        }
+        return
+    }
+
+    output, err := json.Marshal(responses)
+    if err != nil {
+        panic(err)
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Write(output)
 }

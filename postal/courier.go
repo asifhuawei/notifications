@@ -50,6 +50,10 @@ type Courier struct {
     mailer         Mailer
 }
 
+type CourierInterface interface {
+    Dispatch(string, string, NotificationType, Options) ([]Response, error)
+}
+
 func NewCourier(uaaClient UAAInterface, userLoader UserLoader, spaceLoader SpaceLoader, templateLoader TemplateLoader, mailer Mailer) Courier {
     return Courier{
         uaaClient:      uaaClient,

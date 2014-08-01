@@ -5,19 +5,16 @@ import (
     "net/http"
     "strings"
 
-    "github.com/cloudfoundry-incubator/notifications/cf"
     "github.com/cloudfoundry-incubator/notifications/postal"
 )
 
 type NotifySpace struct {
-    cloudController cf.CloudControllerInterface
-    courier         postal.Courier
+    courier postal.CourierInterface
 }
 
-func NewNotifySpace(cloudController cf.CloudControllerInterface, courier postal.Courier) NotifySpace {
+func NewNotifySpace(courier postal.CourierInterface) NotifySpace {
     return NotifySpace{
-        cloudController: cloudController,
-        courier:         courier,
+        courier: courier,
     }
 }
 
@@ -48,11 +45,28 @@ func (handler NotifySpace) ServeHTTP(w http.ResponseWriter, req *http.Request) {
     spaceGUID := strings.TrimPrefix(req.URL.Path, "/spaces/")
     rawToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 
-    _, err = handler.courier.Dispatch(rawToken, spaceGUID, postal.IsSpace, params.ToOptions())
+    responses, err := handler.courier.Dispatch(rawToken, spaceGUID, postal.IsSpace, params.ToOptions())
     if err != nil {
         switch err.(type) {
         case postal.CCDownError:
             Error(w, http.StatusBadGateway, []string{"Cloud Controller is unavailable"})
+        case postal.UAADownError:
+            Error(w, http.StatusBadGateway, []string{"UAA is unavailable"})
+        case postal.UAAGenericError:
+            Error(w, http.StatusBadGateway, []string{err.Error()})
+        case postal.TemplateLoadError:
+            Error(w, http.StatusInternalServerError, []string{"An email template could not be loaded"})
+        default:
+            panic(err)
         }
+        return
     }
+
+    output, err := json.Marshal(responses)
+    if err != nil {
+        panic(err)
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Write(output)
 }
