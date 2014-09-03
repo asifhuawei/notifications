@@ -35,16 +35,11 @@ func (handler NotifySpace) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (handler NotifySpace) Execute(w http.ResponseWriter, req *http.Request, transaction models.TransactionInterface) error {
-    transaction.Begin()
-
     userGUID := postal.SpaceGUID(strings.TrimPrefix(req.URL.Path, "/spaces/"))
     output, err := handler.notify.Execute(transaction, req, userGUID)
     if err != nil {
-        transaction.Rollback()
         return err
     }
-
-    transaction.Commit()
 
     w.WriteHeader(http.StatusOK)
     w.Write(output)

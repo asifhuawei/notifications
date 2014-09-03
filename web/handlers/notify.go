@@ -27,7 +27,7 @@ func NewNotify(courier postal.CourierInterface, finder services.NotificationFind
     }
 }
 
-func (handler Notify) Execute(conn models.ConnectionInterface, req *http.Request, guid postal.TypedGUID) ([]byte, error) {
+func (handler Notify) Execute(transaction models.TransactionInterface, req *http.Request, guid postal.TypedGUID) ([]byte, error) {
     parameters, err := params.NewNotify(req.Body)
     if err != nil {
         return []byte{}, err
@@ -43,12 +43,15 @@ func (handler Notify) Execute(conn models.ConnectionInterface, req *http.Request
         return []byte{}, err
     }
 
-    err = handler.registrar.Register(conn, client, []models.Kind{kind})
+    transaction.Begin()
+    err = handler.registrar.Register(transaction, client, []models.Kind{kind})
     if err != nil {
+        transaction.Rollback()
         return []byte{}, err
     }
+    transaction.Commit()
 
-    responses, err := handler.courier.Dispatch(clientID, guid, parameters.ToOptions(client, kind), conn)
+    responses, err := handler.courier.Dispatch(clientID, guid, parameters.ToOptions(client, kind), transaction)
     if err != nil {
         return []byte{}, err
     }

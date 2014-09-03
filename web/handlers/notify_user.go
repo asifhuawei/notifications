@@ -35,17 +35,12 @@ func (handler NotifyUser) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (handler NotifyUser) Execute(w http.ResponseWriter, req *http.Request, transaction models.TransactionInterface) error {
-    transaction.Begin()
-
     spaceGUID := postal.UserGUID(strings.TrimPrefix(req.URL.Path, "/users/"))
 
     output, err := handler.notify.Execute(transaction, req, spaceGUID)
     if err != nil {
-        transaction.Rollback()
         return err
     }
-
-    transaction.Commit()
 
     w.WriteHeader(http.StatusOK)
     w.Write(output)

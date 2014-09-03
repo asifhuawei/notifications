@@ -25,11 +25,11 @@ const (
     UAAPublicKey  = "PUBLIC-KEY"
 )
 
-func TestNotifierSuite(t *testing.T) {
+func TestPostalSuite(t *testing.T) {
     RegisterFastTokenSigningMethod()
 
     RegisterFailHandler(Fail)
-    RunSpecs(t, "Notifier Suite")
+    RunSpecs(t, "Postal Suite")
 }
 
 func RegisterFastTokenSigningMethod() {

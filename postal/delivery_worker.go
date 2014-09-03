@@ -23,6 +23,7 @@ type Delivery struct {
     ClientID     string
     Templates    Templates
     MessageID    string
+    Subscribed   bool
 }
 
 type DeliveryWorker struct {

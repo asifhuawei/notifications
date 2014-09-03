@@ -60,7 +60,7 @@ var _ = Describe("Notify", func() {
         }
         tokenClaims := map[string]interface{}{
             "client_id": "mister-client",
-            "exp":       3404281214,
+            "exp":       int64(3404281214),
             "scope":     []string{"notifications.write"},
         }
         token = BuildToken(tokenHeader, tokenClaims)
@@ -70,6 +70,7 @@ var _ = Describe("Notify", func() {
             panic(err)
         }
         request.Header.Set("Authorization", "Bearer "+token)
+        fakeDBConn = &FakeDBConn{}
 
         handler = handlers.NewNotify(fakeCourier, fakeFinder, fakeRegistrar)
     })
@@ -106,6 +107,10 @@ var _ = Describe("Notify", func() {
             client,
             []models.Kind{kind},
         }))
+
+        Expect(fakeDBConn.BeginWasCalled).To(BeTrue())
+        Expect(fakeDBConn.CommitWasCalled).To(BeTrue())
+        Expect(fakeDBConn.RollbackWasCalled).To(BeFalse())
     })
 
     Context("failure cases", func() {
@@ -158,7 +163,7 @@ var _ = Describe("Notify", func() {
             It("returns the error", func() {
                 fakeFinder.ClientAndKindError = errors.New("BOOM!")
 
-                _, err := handler.Execute(fakeDBConn, request, postal.UserGUID("user-123"))
+              _, err := handler.Execute(fakeDBConn, request, postal.UserGUID("user-123"))
 
                 Expect(err).To(Equal(errors.New("BOOM!")))
             })
@@ -171,6 +176,10 @@ var _ = Describe("Notify", func() {
                 _, err := handler.Execute(fakeDBConn, request, postal.UserGUID("user-123"))
 
                 Expect(err).To(Equal(errors.New("BOOM!")))
+
+                Expect(fakeDBConn.BeginWasCalled).To(BeTrue())
+                Expect(fakeDBConn.CommitWasCalled).To(BeFalse())
+                Expect(fakeDBConn.RollbackWasCalled).To(BeTrue())
             })
         })
     })
