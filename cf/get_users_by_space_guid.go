@@ -58,5 +58,5 @@ func (cc CloudController) GetUsersBySpaceGuid(guid, token string) ([]CloudContro
 }
 
 func (cc CloudController) UsersBySpaceGuidPath(guid string) string {
-    return fmt.Sprintf("/v2/users?q=space_guid:%s", guid)
+    return fmt.Sprintf("/v2/users?q=space_guid:%s&results-per-page=%d", guid, 100)
 }
