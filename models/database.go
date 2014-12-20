@@ -19,6 +19,7 @@ type DB struct {
 
 type DatabaseInterface interface {
     Connection() ConnectionInterface
+	Migrate()
     TraceOn(string, gorp.GorpLogger)
 }
 
@@ -49,27 +50,24 @@ func NewDatabase(databaseURL string) *DB {
         },
     }
 
+    connection.AddTableWithName(Client{}, "clients").SetKeys(true, "Primary").ColMap("ID").SetUnique(true)
+    connection.AddTableWithName(Kind{}, "kinds").SetKeys(true, "Primary").SetUniqueTogether("id", "client_id")
+    connection.AddTableWithName(Receipt{}, "receipts").SetKeys(true, "Primary").SetUniqueTogether("user_guid", "client_id", "kind_id")
+    connection.AddTableWithName(Unsubscribe{}, "unsubscribes").SetKeys(true, "Primary").SetUniqueTogether("user_id", "client_id", "kind_id")
+    connection.AddTableWithName(GlobalUnsubscribe{}, "global_unsubscribes").SetKeys(true, "Primary").ColMap("UserID").SetUnique(true)
+
     _database = &DB{
         connection: connection,
     }
 
-    _database.migrate()
-
     return _database
 }
 
-func (database DB) migrate() {
-    database.connection.AddTableWithName(Client{}, "clients").SetKeys(true, "Primary").ColMap("ID").SetUnique(true)
-    database.connection.AddTableWithName(Kind{}, "kinds").SetKeys(true, "Primary").SetUniqueTogether("id", "client_id")
-    database.connection.AddTableWithName(Receipt{}, "receipts").SetKeys(true, "Primary").SetUniqueTogether("user_guid", "client_id", "kind_id")
-    database.connection.AddTableWithName(Unsubscribe{}, "unsubscribes").SetKeys(true, "Primary").SetUniqueTogether("user_id", "client_id", "kind_id")
-    database.connection.AddTableWithName(GlobalUnsubscribe{}, "global_unsubscribes").SetKeys(true, "Primary").ColMap("UserID").SetUnique(true)
-
+func (database DB) Migrate() {
     err := database.connection.CreateTablesIfNotExists()
     if err != nil {
         panic(err)
     }
-
 }
 
 func (database *DB) Connection() ConnectionInterface {

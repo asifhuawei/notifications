@@ -88,8 +88,10 @@ func (app Application) RetrieveUAAPublicKey() {
 }
 
 func (app Application) Migrate() {
-    app.mother.Database()
-    gobble.Database()
+    if app.env.VCAPApplication.InstanceIndex == 0 {
+		app.mother.Database().Migrate()
+		gobble.Database().Migrate()
+	}
 }
 
 func (app Application) EnableDBLogging() {

@@ -100,7 +100,7 @@ func (queue *Queue) findJob() Job {
                 queue.waitUpTo(WaitMaxDuration)
                 continue
             }
-            panic(err)
+            queue.waitUpTo(WaitMaxDuration)
         }
     }
     return job

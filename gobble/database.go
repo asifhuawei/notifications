@@ -45,8 +45,6 @@ func Database() *DB {
         },
     }
 
-    migrationsDir := os.Getenv("GOBBLE_MIGRATIONS_DIR")
-    migrate(databaseURL, migrationsDir)
     conn.AddTableWithName(Job{}, "jobs").SetKeys(true, "ID")
 
     _database = &DB{
@@ -54,6 +52,10 @@ func Database() *DB {
     }
 
     return _database
+}
+
+func (database DB) Migrate() {
+	migrate()
 }
 
 func loadDatabaseURL() string {
@@ -72,7 +74,9 @@ func loadDatabaseURL() string {
     return fmt.Sprintf("%s:%s@%s(%s)%s?parseTime=true", parsedURL.User.Username(), password, parsedURL.Scheme, parsedURL.Host, parsedURL.Path)
 }
 
-func migrate(databaseURL, migrationsDir string) {
+func migrate() {
+	databaseURL := loadDatabaseURL()
+    migrationsDir := os.Getenv("GOBBLE_MIGRATIONS_DIR")
     dbDriver := goose.DBDriver{
         Name:    "mysql",
         OpenStr: databaseURL,
