@@ -47,93 +47,56 @@ func (mother *Mother) Queue() gobble.QueueInterface {
 	return mother.queue
 }
 
-func (mother Mother) UserStrategy() strategies.UserStrategy {
+func (mother Mother) NewStrategyFactory() StrategyFactory {
 	env := NewEnvironment()
 	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
 	uaaClient.VerifySSL = env.VerifySSL
 
-	tokenLoader := utilities.NewTokenLoader(&uaaClient)
-	userLoader := utilities.NewUserLoader(&uaaClient, mother.Logger())
-	templatesLoader := mother.TemplatesLoader()
-	mailer := mother.Mailer()
-	receiptsRepo := models.NewReceiptsRepo()
+	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
 
-	return strategies.NewUserStrategy(tokenLoader, userLoader, templatesLoader, mailer, receiptsRepo)
+	sf := StrategyFactory{
+		env:             env,
+		uaaClient:       uaaClient,
+		tokenLoader:     utilities.NewTokenLoader(&uaaClient),
+		templatesLoader: mother.TemplatesLoader(),
+		mailer:          mother.Mailer(),
+		receiptsRepo:    models.NewReceiptsRepo(),
+		userLoader:      utilities.NewUserLoader(&uaaClient, mother.Logger()),
+		cloudController: cloudController,
+		findsUserGUIDs:  utilities.NewFindsUserGUIDs(cloudController, &uaaClient),
+	}
+	return sf
+}
+
+func (mother Mother) UserStrategy() strategies.UserStrategy {
+	return mother.NewStrategyFactory().UserStrategy()
 }
 
 func (mother Mother) SpaceStrategy() strategies.SpaceStrategy {
-	env := NewEnvironment()
-	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
-	uaaClient.VerifySSL = env.VerifySSL
-	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
-
-	tokenLoader := utilities.NewTokenLoader(&uaaClient)
-	userLoader := utilities.NewUserLoader(&uaaClient, mother.Logger())
-	spaceLoader := utilities.NewSpaceLoader(cloudController)
-	organizationLoader := utilities.NewOrganizationLoader(cloudController)
-	templatesLoader := mother.TemplatesLoader()
-	mailer := mother.Mailer()
-	receiptsRepo := models.NewReceiptsRepo()
-	findsUserGUIDs := utilities.NewFindsUserGUIDs(cloudController, &uaaClient)
-
-	return strategies.NewSpaceStrategy(tokenLoader, userLoader, spaceLoader, organizationLoader, findsUserGUIDs, templatesLoader, mailer, receiptsRepo)
+	return mother.NewStrategyFactory().SpaceStrategy()
 }
 
 func (mother Mother) OrganizationStrategy() strategies.OrganizationStrategy {
-	env := NewEnvironment()
-	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
-	uaaClient.VerifySSL = env.VerifySSL
-	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
-
-	tokenLoader := utilities.NewTokenLoader(&uaaClient)
-	userLoader := utilities.NewUserLoader(&uaaClient, mother.Logger())
-	organizationLoader := utilities.NewOrganizationLoader(cloudController)
-	findsUserGUIDs := utilities.NewFindsUserGUIDs(cloudController, &uaaClient)
-	templatesLoader := mother.TemplatesLoader()
-	mailer := mother.Mailer()
-	receiptsRepo := models.NewReceiptsRepo()
-
-	return strategies.NewOrganizationStrategy(tokenLoader, userLoader, organizationLoader, findsUserGUIDs, templatesLoader, mailer, receiptsRepo)
+	return mother.NewStrategyFactory().OrganizationStrategy()
 }
 
 func (mother Mother) EveryoneStrategy() strategies.EveryoneStrategy {
-	env := NewEnvironment()
-	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
-	uaaClient.VerifySSL = env.VerifySSL
-	tokenLoader := utilities.NewTokenLoader(&uaaClient)
-	allUsers := utilities.NewAllUsers(&uaaClient)
-
-	templatesLoader := mother.TemplatesLoader()
-	mailer := mother.Mailer()
-	receiptsRepo := models.NewReceiptsRepo()
-
-	return strategies.NewEveryoneStrategy(tokenLoader, allUsers, templatesLoader, mailer, receiptsRepo)
+	return mother.NewStrategyFactory().EveryoneStrategy()
 }
 
 func (mother Mother) UAAScopeStrategy() strategies.UAAScopeStrategy {
-	env := NewEnvironment()
-	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
-	uaaClient.VerifySSL = env.VerifySSL
-	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
-
-	tokenLoader := utilities.NewTokenLoader(&uaaClient)
-	userLoader := utilities.NewUserLoader(&uaaClient, mother.Logger())
-	findsUserGUIDs := utilities.NewFindsUserGUIDs(cloudController, &uaaClient)
-	templatesLoader := mother.TemplatesLoader()
-	receiptsRepo := models.NewReceiptsRepo()
-	mailer := mother.Mailer()
-
-	return strategies.NewUAAScopeStrategy(tokenLoader, userLoader, findsUserGUIDs, templatesLoader, mailer, receiptsRepo)
+	return mother.NewStrategyFactory().UAAScopeStrategy()
 }
 
 func (mother Mother) EmailStrategy() strategies.EmailStrategy {
-	return strategies.NewEmailStrategy(mother.Mailer(), mother.TemplatesLoader())
+	return mother.NewStrategyFactory().EmailStrategy()
 }
 
 func (mother Mother) NotificationsFinder() services.NotificationsFinder {
 	clientsRepo, kindsRepo := mother.Repos()
 	return services.NewNotificationsFinder(clientsRepo, kindsRepo, mother.Database())
 }
+
 func (mother Mother) NotificationsUpdater() services.NotificationsUpdater {
 	_, kindsRepo := mother.Repos()
 	return services.NewNotificationsUpdater(kindsRepo, mother.Database())
