@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry-incubator/notifications/models"
 	"github.com/cloudfoundry-incubator/notifications/postal/strategies"
 	"github.com/cloudfoundry-incubator/notifications/postal/utilities"
-	"github.com/cloudfoundry-incubator/notifications/web/handlers"
 	"github.com/cloudfoundry-incubator/notifications/web/middleware"
 	"github.com/cloudfoundry-incubator/notifications/web/services"
 	"github.com/nu7hatch/gouuid"
@@ -126,10 +125,6 @@ func (mother Mother) Repos() (models.ClientsRepo, models.KindsRepo) {
 
 func (mother Mother) Logging() stack.Middleware {
 	return stack.NewLogging(mother.Logger())
-}
-
-func (mother Mother) ErrorWriter() handlers.ErrorWriter {
-	return handlers.NewErrorWriter()
 }
 
 func (mother Mother) Authenticator(scopes ...string) middleware.Authenticator {

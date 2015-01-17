@@ -31,7 +31,6 @@ type MotherInterface interface {
 	TemplateServiceObjects() (services.TemplateCreator, services.TemplateFinder, services.TemplateUpdater, services.TemplateDeleter, services.TemplateLister, services.TemplateAssigner, services.TemplateAssociationLister)
 	Database() models.DatabaseInterface
 	Logging() stack.Middleware
-	ErrorWriter() handlers.ErrorWriter
 	CORS() middleware.CORS
 }
 
@@ -43,14 +42,16 @@ func NewRouter(mother MotherInterface, strategies strategyFactory, authenticator
 	registrar := mother.Registrar()
 	notificationsFinder := mother.NotificationsFinder()
 
-	notify := handlers.NewNotify(mother.NotificationsFinder(), registrar)
+	notify := handlers.NewNotify(notificationsFinder, registrar)
+
 	preferencesFinder := mother.PreferencesFinder()
 	preferenceUpdater := mother.PreferenceUpdater()
 	templateCreator, templateFinder, templateUpdater, templateDeleter, templateLister, templateAssigner, templateAssociationLister := mother.TemplateServiceObjects()
 	notificationsUpdater := mother.NotificationsUpdater()
 	messageFinder := mother.MessageFinder()
+
 	logging := mother.Logging()
-	errorWriter := mother.ErrorWriter()
+	errorWriter := handlers.NewErrorWriter()
 	database := mother.Database()
 	cors := mother.CORS()
 

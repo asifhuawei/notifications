@@ -2,7 +2,6 @@ package fakes
 
 import (
 	"github.com/cloudfoundry-incubator/notifications/models"
-	"github.com/cloudfoundry-incubator/notifications/web/handlers"
 	"github.com/cloudfoundry-incubator/notifications/web/middleware"
 	"github.com/cloudfoundry-incubator/notifications/web/services"
 	"github.com/ryanmoran/stack"
@@ -50,10 +49,6 @@ func (mother Mother) Database() models.DatabaseInterface {
 
 func (mother Mother) Logging() stack.Middleware {
 	return stack.Logging{}
-}
-
-func (mother Mother) ErrorWriter() handlers.ErrorWriter {
-	return handlers.ErrorWriter{}
 }
 
 func (mother Mother) Authenticator(scopes ...string) middleware.Authenticator {
