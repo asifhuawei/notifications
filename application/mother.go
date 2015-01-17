@@ -54,42 +54,17 @@ func (mother Mother) NewStrategyFactory() StrategyFactory {
 
 	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
 
-	sf := StrategyFactory{
-		env:             env,
-		uaaClient:       uaaClient,
-		tokenLoader:     utilities.NewTokenLoader(&uaaClient),
-		templatesLoader: mother.TemplatesLoader(),
-		mailer:          mother.Mailer(),
-		receiptsRepo:    models.NewReceiptsRepo(),
-		userLoader:      utilities.NewUserLoader(&uaaClient, mother.Logger()),
-		cloudController: cloudController,
-		findsUserGUIDs:  utilities.NewFindsUserGUIDs(cloudController, &uaaClient),
+	return StrategyFactory{
+		templatesLoader:    mother.TemplatesLoader(),
+		mailer:             mother.Mailer(),
+		receiptsRepo:       models.NewReceiptsRepo(),
+		userLoader:         utilities.NewUserLoader(&uaaClient, mother.Logger()),
+		findsUserGUIDs:     utilities.NewFindsUserGUIDs(cloudController, &uaaClient),
+		spaceLoader:        utilities.NewSpaceLoader(cloudController),
+		organizationLoader: utilities.NewOrganizationLoader(cloudController),
+		allUsers:           utilities.NewAllUsers(&uaaClient),
+		tokenLoader:        utilities.NewTokenLoader(&uaaClient),
 	}
-	return sf
-}
-
-func (mother Mother) UserStrategy() strategies.UserStrategy {
-	return mother.NewStrategyFactory().UserStrategy()
-}
-
-func (mother Mother) SpaceStrategy() strategies.SpaceStrategy {
-	return mother.NewStrategyFactory().SpaceStrategy()
-}
-
-func (mother Mother) OrganizationStrategy() strategies.OrganizationStrategy {
-	return mother.NewStrategyFactory().OrganizationStrategy()
-}
-
-func (mother Mother) EveryoneStrategy() strategies.EveryoneStrategy {
-	return mother.NewStrategyFactory().EveryoneStrategy()
-}
-
-func (mother Mother) UAAScopeStrategy() strategies.UAAScopeStrategy {
-	return mother.NewStrategyFactory().UAAScopeStrategy()
-}
-
-func (mother Mother) EmailStrategy() strategies.EmailStrategy {
-	return mother.NewStrategyFactory().EmailStrategy()
 }
 
 func (mother Mother) NotificationsFinder() services.NotificationsFinder {

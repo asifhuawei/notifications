@@ -15,7 +15,7 @@ var _ = Describe("Router", func() {
 	var router web.Router
 
 	BeforeEach(func() {
-		router = web.NewRouter(fakes.NewMother())
+		router = web.NewRouter(fakes.NewMother(), fakes.NewStrategyFactory())
 	})
 
 	It("routes GET /info", func() {

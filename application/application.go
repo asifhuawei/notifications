@@ -3,6 +3,7 @@ package application
 import (
 	"errors"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/cloudfoundry-incubator/notifications/postal"
@@ -121,7 +122,10 @@ func (app Application) StartMessageGC() {
 }
 
 func (app Application) StartServer() {
-	web.NewServer().Run(app.env.Port, app.mother)
+	router := web.NewRouter(app.mother, app.mother.NewStrategyFactory())
+	log.Printf("Listening on localhost:%s\n", app.env.Port)
+
+	http.ListenAndServe(":"+app.env.Port, router.Routes())
 }
 
 // This is a hack to get the logs output to the loggregator before the process exits

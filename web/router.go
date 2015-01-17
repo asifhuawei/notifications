@@ -12,14 +12,17 @@ import (
 	"github.com/ryanmoran/stack"
 )
 
-type MotherInterface interface {
-	Registrar() services.Registrar
+type strategyFactory interface {
 	EmailStrategy() strategies.EmailStrategy
 	UserStrategy() strategies.UserStrategy
 	SpaceStrategy() strategies.SpaceStrategy
 	OrganizationStrategy() strategies.OrganizationStrategy
 	EveryoneStrategy() strategies.EveryoneStrategy
 	UAAScopeStrategy() strategies.UAAScopeStrategy
+}
+
+type MotherInterface interface {
+	Registrar() services.Registrar
 	NotificationsFinder() services.NotificationsFinder
 	NotificationsUpdater() services.NotificationsUpdater
 	PreferencesFinder() *services.PreferencesFinder
@@ -37,15 +40,10 @@ type Router struct {
 	stacks map[string]stack.Stack
 }
 
-func NewRouter(mother MotherInterface) Router {
+func NewRouter(mother MotherInterface, strategies strategyFactory) Router {
 	registrar := mother.Registrar()
 	notificationsFinder := mother.NotificationsFinder()
-	emailStrategy := mother.EmailStrategy()
-	userStrategy := mother.UserStrategy()
-	spaceStrategy := mother.SpaceStrategy()
-	organizationStrategy := mother.OrganizationStrategy()
-	everyoneStrategy := mother.EveryoneStrategy()
-	uaaScopeStrategy := mother.UAAScopeStrategy()
+
 	notify := handlers.NewNotify(mother.NotificationsFinder(), registrar)
 	preferencesFinder := mother.PreferencesFinder()
 	preferenceUpdater := mother.PreferenceUpdater()
@@ -54,6 +52,7 @@ func NewRouter(mother MotherInterface) Router {
 	messageFinder := mother.MessageFinder()
 	logging := mother.Logging()
 	errorWriter := mother.ErrorWriter()
+
 	notificationsWriteAuthenticator := mother.Authenticator("notifications.write")
 	notificationsManageAuthenticator := mother.Authenticator("notifications.manage")
 	notificationPreferencesReadAuthenticator := mother.Authenticator("notification_preferences.read")
@@ -63,18 +62,19 @@ func NewRouter(mother MotherInterface) Router {
 	notificationsTemplateWriteAuthenticator := mother.Authenticator("notification_templates.write")
 	notificationsTemplateReadAuthenticator := mother.Authenticator("notification_templates.read")
 	notificationsWriteOrEmailsWriteAuthenticator := mother.Authenticator("notifications.write", "emails.write")
+
 	database := mother.Database()
 	cors := mother.CORS()
 
 	return Router{
 		stacks: map[string]stack.Stack{
 			"GET /info":                                                       stack.NewStack(handlers.NewGetInfo()).Use(logging),
-			"POST /users/{guid}":                                              stack.NewStack(handlers.NewNotifyUser(notify, errorWriter, userStrategy, database)).Use(logging, notificationsWriteAuthenticator),
-			"POST /spaces/{guid}":                                             stack.NewStack(handlers.NewNotifySpace(notify, errorWriter, spaceStrategy, database)).Use(logging, notificationsWriteAuthenticator),
-			"POST /organizations/{guid}":                                      stack.NewStack(handlers.NewNotifyOrganization(notify, errorWriter, organizationStrategy, database)).Use(logging, notificationsWriteAuthenticator),
-			"POST /everyone":                                                  stack.NewStack(handlers.NewNotifyEveryone(notify, errorWriter, everyoneStrategy, database)).Use(logging, notificationsWriteAuthenticator),
-			"POST /uaa_scopes/{scope}":                                        stack.NewStack(handlers.NewNotifyUAAScope(notify, errorWriter, uaaScopeStrategy, database)).Use(logging, notificationsWriteAuthenticator),
-			"POST /emails":                                                    stack.NewStack(handlers.NewNotifyEmail(notify, errorWriter, emailStrategy, database)).Use(logging, emailsWriteAuthenticator),
+			"POST /users/{guid}":                                              stack.NewStack(handlers.NewNotifyUser(notify, errorWriter, strategies.UserStrategy(), database)).Use(logging, notificationsWriteAuthenticator),
+			"POST /spaces/{guid}":                                             stack.NewStack(handlers.NewNotifySpace(notify, errorWriter, strategies.SpaceStrategy(), database)).Use(logging, notificationsWriteAuthenticator),
+			"POST /organizations/{guid}":                                      stack.NewStack(handlers.NewNotifyOrganization(notify, errorWriter, strategies.OrganizationStrategy(), database)).Use(logging, notificationsWriteAuthenticator),
+			"POST /everyone":                                                  stack.NewStack(handlers.NewNotifyEveryone(notify, errorWriter, strategies.EveryoneStrategy(), database)).Use(logging, notificationsWriteAuthenticator),
+			"POST /uaa_scopes/{scope}":                                        stack.NewStack(handlers.NewNotifyUAAScope(notify, errorWriter, strategies.UAAScopeStrategy(), database)).Use(logging, notificationsWriteAuthenticator),
+			"POST /emails":                                                    stack.NewStack(handlers.NewNotifyEmail(notify, errorWriter, strategies.EmailStrategy(), database)).Use(logging, emailsWriteAuthenticator),
 			"PUT /registration":                                               stack.NewStack(handlers.NewRegisterNotifications(registrar, errorWriter, database)).Use(logging, notificationsWriteAuthenticator),
 			"PUT /notifications":                                              stack.NewStack(handlers.NewRegisterClientWithNotifications(registrar, errorWriter, database)).Use(logging, notificationsWriteAuthenticator),
 			"PUT /clients/{clientID}/notifications/{notificationID}":          stack.NewStack(handlers.NewUpdateNotifications(notificationsUpdater, errorWriter)).Use(logging, notificationsManageAuthenticator),
