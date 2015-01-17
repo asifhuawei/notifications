@@ -32,7 +32,6 @@ type MotherInterface interface {
 	Database() models.DatabaseInterface
 	Logging() stack.Middleware
 	ErrorWriter() handlers.ErrorWriter
-	Authenticator(...string) middleware.Authenticator
 	CORS() middleware.CORS
 }
 
@@ -40,7 +39,7 @@ type Router struct {
 	stacks map[string]stack.Stack
 }
 
-func NewRouter(mother MotherInterface, strategies strategyFactory) Router {
+func NewRouter(mother MotherInterface, strategies strategyFactory, authenticator func(...string) middleware.Authenticator) Router {
 	registrar := mother.Registrar()
 	notificationsFinder := mother.NotificationsFinder()
 
@@ -52,19 +51,18 @@ func NewRouter(mother MotherInterface, strategies strategyFactory) Router {
 	messageFinder := mother.MessageFinder()
 	logging := mother.Logging()
 	errorWriter := mother.ErrorWriter()
-
-	notificationsWriteAuthenticator := mother.Authenticator("notifications.write")
-	notificationsManageAuthenticator := mother.Authenticator("notifications.manage")
-	notificationPreferencesReadAuthenticator := mother.Authenticator("notification_preferences.read")
-	notificationPreferencesWriteAuthenticator := mother.Authenticator("notification_preferences.write")
-	notificationPreferencesAdminAuthenticator := mother.Authenticator("notification_preferences.admin")
-	emailsWriteAuthenticator := mother.Authenticator("emails.write")
-	notificationsTemplateWriteAuthenticator := mother.Authenticator("notification_templates.write")
-	notificationsTemplateReadAuthenticator := mother.Authenticator("notification_templates.read")
-	notificationsWriteOrEmailsWriteAuthenticator := mother.Authenticator("notifications.write", "emails.write")
-
 	database := mother.Database()
 	cors := mother.CORS()
+
+	notificationsWriteAuthenticator := authenticator("notifications.write")
+	notificationsManageAuthenticator := authenticator("notifications.manage")
+	notificationPreferencesReadAuthenticator := authenticator("notification_preferences.read")
+	notificationPreferencesWriteAuthenticator := authenticator("notification_preferences.write")
+	notificationPreferencesAdminAuthenticator := authenticator("notification_preferences.admin")
+	emailsWriteAuthenticator := authenticator("emails.write")
+	notificationsTemplateWriteAuthenticator := authenticator("notification_templates.write")
+	notificationsTemplateReadAuthenticator := authenticator("notification_templates.read")
+	notificationsWriteOrEmailsWriteAuthenticator := authenticator("notifications.write", "emails.write")
 
 	return Router{
 		stacks: map[string]stack.Stack{
