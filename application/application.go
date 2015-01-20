@@ -122,7 +122,10 @@ func (app Application) StartMessageGC() {
 }
 
 func (app Application) StartServer() {
-	router := web.NewRouter(app.mother, app.mother.NewStrategyFactory(), app.mother.Authenticator)
+	mother := app.mother
+	servicesFactory := mother.NewServicesFactory()
+	strategyFactory := mother.NewStrategyFactory()
+	router := web.NewRouter(mother, servicesFactory, strategyFactory, mother.Authenticator)
 	log.Printf("Listening on localhost:%s\n", app.env.Port)
 
 	http.ListenAndServe(":"+app.env.Port, router.Routes())

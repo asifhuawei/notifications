@@ -21,7 +21,7 @@ type strategyFactory interface {
 	UAAScopeStrategy() strategies.UAAScopeStrategy
 }
 
-type MotherInterface interface {
+type servicesFactory interface {
 	Registrar() services.Registrar
 	NotificationsFinder() services.NotificationsFinder
 	NotificationsUpdater() services.NotificationsUpdater
@@ -29,6 +29,9 @@ type MotherInterface interface {
 	PreferenceUpdater() services.PreferenceUpdater
 	MessageFinder() services.MessageFinder
 	TemplateServiceObjects() (services.TemplateCreator, services.TemplateFinder, services.TemplateUpdater, services.TemplateDeleter, services.TemplateLister, services.TemplateAssigner, services.TemplateAssociationLister)
+}
+
+type MotherInterface interface {
 	Database() models.DatabaseInterface
 	Logging() stack.Middleware
 	CORS() middleware.CORS
@@ -38,17 +41,19 @@ type Router struct {
 	stacks map[string]stack.Stack
 }
 
-func NewRouter(mother MotherInterface, strategies strategyFactory, authenticator func(...string) middleware.Authenticator) Router {
-	registrar := mother.Registrar()
-	notificationsFinder := mother.NotificationsFinder()
+func NewRouter(mother MotherInterface, services servicesFactory,
+	strategies strategyFactory, authenticator func(...string) middleware.Authenticator) Router {
+
+	registrar := services.Registrar()
+	notificationsFinder := services.NotificationsFinder()
 
 	notify := handlers.NewNotify(notificationsFinder, registrar)
 
-	preferencesFinder := mother.PreferencesFinder()
-	preferenceUpdater := mother.PreferenceUpdater()
-	templateCreator, templateFinder, templateUpdater, templateDeleter, templateLister, templateAssigner, templateAssociationLister := mother.TemplateServiceObjects()
-	notificationsUpdater := mother.NotificationsUpdater()
-	messageFinder := mother.MessageFinder()
+	preferencesFinder := services.PreferencesFinder()
+	preferenceUpdater := services.PreferenceUpdater()
+	templateCreator, templateFinder, templateUpdater, templateDeleter, templateLister, templateAssigner, templateAssociationLister := services.TemplateServiceObjects()
+	notificationsUpdater := services.NotificationsUpdater()
+	messageFinder := services.MessageFinder()
 
 	logging := mother.Logging()
 	errorWriter := handlers.NewErrorWriter()

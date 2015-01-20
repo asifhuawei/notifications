@@ -13,7 +13,6 @@ import (
 	"github.com/cloudfoundry-incubator/notifications/postal/strategies"
 	"github.com/cloudfoundry-incubator/notifications/postal/utilities"
 	"github.com/cloudfoundry-incubator/notifications/web/middleware"
-	"github.com/cloudfoundry-incubator/notifications/web/services"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-cf/uaa-sso-golang/uaa"
 	"github.com/ryanmoran/stack"
@@ -53,8 +52,10 @@ func (mother Mother) NewStrategyFactory() StrategyFactory {
 
 	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
 
+	templatesLoader := mother.NewServicesFactory().TemplatesLoader()
+
 	return StrategyFactory{
-		templatesLoader:    mother.TemplatesLoader(),
+		templatesLoader:    templatesLoader,
 		mailer:             mother.Mailer(),
 		receiptsRepo:       models.NewReceiptsRepo(),
 		userLoader:         utilities.NewUserLoader(&uaaClient, mother.Logger()),
@@ -66,26 +67,22 @@ func (mother Mother) NewStrategyFactory() StrategyFactory {
 	}
 }
 
-func (mother Mother) NotificationsFinder() services.NotificationsFinder {
-	clientsRepo, kindsRepo := mother.Repos()
-	return services.NewNotificationsFinder(clientsRepo, kindsRepo, mother.Database())
-}
+func (mother Mother) NewServicesFactory() ServicesFactory {
+	return ServicesFactory{
+		database: mother.Database(),
 
-func (mother Mother) NotificationsUpdater() services.NotificationsUpdater {
-	_, kindsRepo := mother.Repos()
-	return services.NewNotificationsUpdater(kindsRepo, mother.Database())
+		clientsRepo:            models.NewClientsRepo(),
+		kindsRepo:              models.NewKindsRepo(),
+		preferencesRepo:        models.NewPreferencesRepo(),
+		unsubscribesRepo:       models.NewUnsubscribesRepo(),
+		globalUnsubscribesRepo: models.NewGlobalUnsubscribesRepo(),
+		templatesRepo:          models.NewTemplatesRepo(),
+		messagesRepo:           models.NewMessagesRepo(),
+	}
 }
 
 func (mother Mother) Mailer() strategies.Mailer {
 	return strategies.NewMailer(mother.Queue(), uuid.NewV4, mother.MessagesRepo())
-}
-
-func (mother Mother) TemplatesLoader() utilities.TemplatesLoader {
-	finder := mother.TemplateFinder()
-	database := mother.Database()
-	clientsRepo, kindsRepo := mother.Repos()
-	templatesRepo := mother.TemplatesRepo()
-	return utilities.NewTemplatesLoader(finder, database, clientsRepo, kindsRepo, templatesRepo)
 }
 
 func (mother Mother) MailClient() *mail.Client {
@@ -131,11 +128,6 @@ func (mother Mother) Authenticator(scopes ...string) middleware.Authenticator {
 	return middleware.NewAuthenticator(UAAPublicKey, scopes...)
 }
 
-func (mother Mother) Registrar() services.Registrar {
-	clientsRepo, kindsRepo := mother.Repos()
-	return services.NewRegistrar(clientsRepo, kindsRepo)
-}
-
 func (mother Mother) Database() models.DatabaseInterface {
 	env := NewEnvironment()
 	return models.NewDatabase(models.Config{
@@ -144,45 +136,6 @@ func (mother Mother) Database() models.DatabaseInterface {
 		DefaultTemplatePath: path.Join(env.RootPath, "templates", "default.json"),
 	})
 }
-
-func (mother Mother) PreferencesFinder() *services.PreferencesFinder {
-	return services.NewPreferencesFinder(models.NewPreferencesRepo(), mother.GlobalUnsubscribesRepo(), mother.Database())
-}
-
-func (mother Mother) PreferenceUpdater() services.PreferenceUpdater {
-	return services.NewPreferenceUpdater(mother.GlobalUnsubscribesRepo(), mother.UnsubscribesRepo(), mother.KindsRepo())
-}
-
-func (mother Mother) TemplateFinder() services.TemplateFinder {
-	database := mother.Database()
-	templatesRepo := mother.TemplatesRepo()
-
-	return services.NewTemplateFinder(templatesRepo, database)
-}
-
-func (mother Mother) MessageFinder() services.MessageFinder {
-	database := mother.Database()
-	messagesRepo := mother.MessagesRepo()
-
-	return services.NewMessageFinder(messagesRepo, database)
-}
-
-func (mother Mother) TemplateServiceObjects() (services.TemplateCreator, services.TemplateFinder, services.TemplateUpdater,
-	services.TemplateDeleter, services.TemplateLister, services.TemplateAssigner, services.TemplateAssociationLister) {
-
-	database := mother.Database()
-	clientsRepo, kindsRepo := mother.Repos()
-	templatesRepo := mother.TemplatesRepo()
-
-	return services.NewTemplateCreator(templatesRepo, database),
-		services.NewTemplateFinder(templatesRepo, database),
-		services.NewTemplateUpdater(templatesRepo, database),
-		services.NewTemplateDeleter(templatesRepo, database),
-		services.NewTemplateLister(templatesRepo, database),
-		services.NewTemplateAssigner(clientsRepo, kindsRepo, templatesRepo, database),
-		services.NewTemplateAssociationLister(clientsRepo, kindsRepo, templatesRepo, database)
-}
-
 func (mother Mother) KindsRepo() models.KindsRepo {
 	return models.NewKindsRepo()
 }
