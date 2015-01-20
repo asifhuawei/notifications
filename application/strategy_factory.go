@@ -1,9 +1,13 @@
 package application
 
 import (
+	"log"
+
+	"github.com/cloudfoundry-incubator/notifications/cf"
 	"github.com/cloudfoundry-incubator/notifications/models"
 	"github.com/cloudfoundry-incubator/notifications/postal/strategies"
 	"github.com/cloudfoundry-incubator/notifications/postal/utilities"
+	"github.com/pivotal-cf/uaa-sso-golang/uaa"
 )
 
 type StrategyFactory struct {
@@ -16,6 +20,22 @@ type StrategyFactory struct {
 	organizationLoader utilities.OrganizationLoader
 	mailer             strategies.Mailer
 	receiptsRepo       models.ReceiptsRepo
+}
+
+func NewStrategyFactory(uaaClient uaa.UAA, cloudController cf.CloudControllerInterface,
+	logger *log.Logger, mailer strategies.Mailer, templatesLoader utilities.TemplatesLoader) StrategyFactory {
+
+	return StrategyFactory{
+		templatesLoader:    templatesLoader,
+		mailer:             mailer,
+		receiptsRepo:       models.NewReceiptsRepo(),
+		userLoader:         utilities.NewUserLoader(&uaaClient, logger),
+		findsUserGUIDs:     utilities.NewFindsUserGUIDs(cloudController, &uaaClient),
+		spaceLoader:        utilities.NewSpaceLoader(cloudController),
+		organizationLoader: utilities.NewOrganizationLoader(cloudController),
+		allUsers:           utilities.NewAllUsers(&uaaClient),
+		tokenLoader:        utilities.NewTokenLoader(&uaaClient),
+	}
 }
 
 func (sf StrategyFactory) UserStrategy() strategies.UserStrategy {

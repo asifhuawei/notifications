@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry-incubator/notifications/postal"
 	"github.com/cloudfoundry-incubator/notifications/web"
 	"github.com/pivotal-cf/uaa-sso-golang/uaa"
 	"github.com/ryanmoran/viron"
@@ -80,8 +79,7 @@ func (app Application) ConfigureSMTP() {
 }
 
 func (app Application) RetrieveUAAPublicKey() {
-	auth := uaa.NewUAA("", app.env.UAAHost, app.env.UAAClientID, app.env.UAAClientSecret, "")
-	auth.VerifySSL = app.env.VerifySSL
+	auth := app.mother.UAAClient()
 
 	key, err := uaa.GetTokenKey(auth)
 	if err != nil {
@@ -104,9 +102,7 @@ func (app Application) EnableDBLogging() {
 
 func (app Application) StartWorkers() {
 	for i := 0; i < WorkerCount; i++ {
-		worker := postal.NewDeliveryWorker(i+1, app.mother.Logger(), app.mother.MailClient(), app.mother.Queue(),
-			app.mother.GlobalUnsubscribesRepo(), app.mother.UnsubscribesRepo(), app.mother.KindsRepo(), app.mother.MessagesRepo(),
-			app.mother.Database(), app.env.Sender, app.env.EncryptionKey)
+		worker := app.mother.DeliveryWorker(i + 1)
 		worker.Work()
 	}
 }
@@ -122,10 +118,8 @@ func (app Application) StartMessageGC() {
 }
 
 func (app Application) StartServer() {
-	mother := app.mother
-	servicesFactory := mother.NewServicesFactory()
-	strategyFactory := mother.NewStrategyFactory()
-	router := web.NewRouter(mother, servicesFactory, strategyFactory, mother.Authenticator)
+	config := app.mother.RouterConfig()
+	router := web.NewRouter(config)
 	log.Printf("Listening on localhost:%s\n", app.env.Port)
 
 	http.ListenAndServe(":"+app.env.Port, router.Routes())

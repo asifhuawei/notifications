@@ -10,9 +10,11 @@ import (
 	"github.com/cloudfoundry-incubator/notifications/gobble"
 	"github.com/cloudfoundry-incubator/notifications/mail"
 	"github.com/cloudfoundry-incubator/notifications/models"
+	"github.com/cloudfoundry-incubator/notifications/postal"
 	"github.com/cloudfoundry-incubator/notifications/postal/strategies"
-	"github.com/cloudfoundry-incubator/notifications/postal/utilities"
+	"github.com/cloudfoundry-incubator/notifications/web"
 	"github.com/cloudfoundry-incubator/notifications/web/middleware"
+
 	"github.com/nu7hatch/gouuid"
 	"github.com/pivotal-cf/uaa-sso-golang/uaa"
 	"github.com/ryanmoran/stack"
@@ -45,44 +47,50 @@ func (mother *Mother) Queue() gobble.QueueInterface {
 	return mother.queue
 }
 
-func (mother Mother) NewStrategyFactory() StrategyFactory {
+func (mother Mother) UAAClient() uaa.UAA {
 	env := NewEnvironment()
 	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
 	uaaClient.VerifySSL = env.VerifySSL
 
-	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
+	return uaaClient
+}
 
-	templatesLoader := mother.NewServicesFactory().TemplatesLoader()
-
-	return StrategyFactory{
-		templatesLoader:    templatesLoader,
-		mailer:             mother.Mailer(),
-		receiptsRepo:       models.NewReceiptsRepo(),
-		userLoader:         utilities.NewUserLoader(&uaaClient, mother.Logger()),
-		findsUserGUIDs:     utilities.NewFindsUserGUIDs(cloudController, &uaaClient),
-		spaceLoader:        utilities.NewSpaceLoader(cloudController),
-		organizationLoader: utilities.NewOrganizationLoader(cloudController),
-		allUsers:           utilities.NewAllUsers(&uaaClient),
-		tokenLoader:        utilities.NewTokenLoader(&uaaClient),
+func (mother Mother) RouterConfig() web.RouterConfig {
+	return web.RouterConfig{
+		Database:      mother.Database(),
+		Logging:       mother.Logging(),
+		CORS:          mother.CORS(),
+		Services:      mother.ServicesFactory(),
+		Strategies:    mother.StrategyFactory(),
+		Authenticator: mother.Authenticator,
 	}
 }
 
-func (mother Mother) NewServicesFactory() ServicesFactory {
-	return ServicesFactory{
-		database: mother.Database(),
+func (mother Mother) StrategyFactory() StrategyFactory {
+	env := NewEnvironment()
+	templatesLoader := mother.ServicesFactory().TemplatesLoader()
+	mailer := mother.Mailer()
+	logger := mother.Logger()
 
-		clientsRepo:            models.NewClientsRepo(),
-		kindsRepo:              models.NewKindsRepo(),
-		preferencesRepo:        models.NewPreferencesRepo(),
-		unsubscribesRepo:       models.NewUnsubscribesRepo(),
-		globalUnsubscribesRepo: models.NewGlobalUnsubscribesRepo(),
-		templatesRepo:          models.NewTemplatesRepo(),
-		messagesRepo:           models.NewMessagesRepo(),
-	}
+	cloudController := cf.NewCloudController(env.CCHost, !env.VerifySSL)
+	uaaClient := mother.UAAClient()
+
+	return NewStrategyFactory(uaaClient, cloudController, logger, mailer, templatesLoader)
+}
+
+func (mother Mother) ServicesFactory() ServicesFactory {
+	return NewServicesFactory(mother.Database())
+}
+
+func (mother Mother) DeliveryWorker(id int) postal.DeliveryWorker {
+	env := NewEnvironment()
+	return postal.NewDeliveryWorker(id, mother.Logger(), mother.MailClient(), mother.Queue(),
+		models.NewGlobalUnsubscribesRepo(), models.NewUnsubscribesRepo(), models.NewKindsRepo(), models.NewMessagesRepo(),
+		mother.Database(), env.Sender, env.EncryptionKey)
 }
 
 func (mother Mother) Mailer() strategies.Mailer {
-	return strategies.NewMailer(mother.Queue(), uuid.NewV4, mother.MessagesRepo())
+	return strategies.NewMailer(mother.Queue(), uuid.NewV4, models.NewMessagesRepo())
 }
 
 func (mother Mother) MailClient() *mail.Client {
@@ -116,10 +124,6 @@ func (mother Mother) MailClient() *mail.Client {
 	return client
 }
 
-func (mother Mother) Repos() (models.ClientsRepo, models.KindsRepo) {
-	return models.NewClientsRepo(), mother.KindsRepo()
-}
-
 func (mother Mother) Logging() stack.Middleware {
 	return stack.NewLogging(mother.Logger())
 }
@@ -135,25 +139,6 @@ func (mother Mother) Database() models.DatabaseInterface {
 		MigrationsPath:      env.ModelMigrationsDir,
 		DefaultTemplatePath: path.Join(env.RootPath, "templates", "default.json"),
 	})
-}
-func (mother Mother) KindsRepo() models.KindsRepo {
-	return models.NewKindsRepo()
-}
-
-func (mother Mother) UnsubscribesRepo() models.UnsubscribesRepo {
-	return models.NewUnsubscribesRepo()
-}
-
-func (mother Mother) GlobalUnsubscribesRepo() models.GlobalUnsubscribesRepo {
-	return models.NewGlobalUnsubscribesRepo()
-}
-
-func (mother Mother) TemplatesRepo() models.TemplatesRepo {
-	return models.NewTemplatesRepo()
-}
-
-func (mother Mother) MessagesRepo() models.MessagesRepo {
-	return models.NewMessagesRepo()
 }
 
 func (mother Mother) CORS() middleware.CORS {

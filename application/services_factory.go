@@ -18,6 +18,20 @@ type ServicesFactory struct {
 	messagesRepo           models.MessagesRepo
 }
 
+func NewServicesFactory(database models.DatabaseInterface) ServicesFactory {
+	return ServicesFactory{
+		database: database,
+
+		clientsRepo:            models.NewClientsRepo(),
+		kindsRepo:              models.NewKindsRepo(),
+		preferencesRepo:        models.NewPreferencesRepo(),
+		unsubscribesRepo:       models.NewUnsubscribesRepo(),
+		globalUnsubscribesRepo: models.NewGlobalUnsubscribesRepo(),
+		templatesRepo:          models.NewTemplatesRepo(),
+		messagesRepo:           models.NewMessagesRepo(),
+	}
+}
+
 func (s ServicesFactory) NotificationsFinder() services.NotificationsFinder {
 	return services.NewNotificationsFinder(s.clientsRepo, s.kindsRepo, s.database)
 }

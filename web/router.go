@@ -31,34 +31,38 @@ type servicesFactory interface {
 	TemplateServiceObjects() (services.TemplateCreator, services.TemplateFinder, services.TemplateUpdater, services.TemplateDeleter, services.TemplateLister, services.TemplateAssigner, services.TemplateAssociationLister)
 }
 
-type MotherInterface interface {
-	Database() models.DatabaseInterface
-	Logging() stack.Middleware
-	CORS() middleware.CORS
+type RouterConfig struct {
+	Database      models.DatabaseInterface
+	Logging       stack.Middleware
+	CORS          middleware.CORS
+	Services      servicesFactory
+	Strategies    strategyFactory
+	Authenticator func(...string) middleware.Authenticator
 }
 
 type Router struct {
 	stacks map[string]stack.Stack
 }
 
-func NewRouter(mother MotherInterface, services servicesFactory,
-	strategies strategyFactory, authenticator func(...string) middleware.Authenticator) Router {
+func NewRouter(config RouterConfig) Router {
 
-	registrar := services.Registrar()
-	notificationsFinder := services.NotificationsFinder()
+	registrar := config.Services.Registrar()
+	notificationsFinder := config.Services.NotificationsFinder()
 
 	notify := handlers.NewNotify(notificationsFinder, registrar)
 
-	preferencesFinder := services.PreferencesFinder()
-	preferenceUpdater := services.PreferenceUpdater()
-	templateCreator, templateFinder, templateUpdater, templateDeleter, templateLister, templateAssigner, templateAssociationLister := services.TemplateServiceObjects()
-	notificationsUpdater := services.NotificationsUpdater()
-	messageFinder := services.MessageFinder()
+	preferencesFinder := config.Services.PreferencesFinder()
+	preferenceUpdater := config.Services.PreferenceUpdater()
+	templateCreator, templateFinder, templateUpdater, templateDeleter, templateLister, templateAssigner, templateAssociationLister := config.Services.TemplateServiceObjects()
+	notificationsUpdater := config.Services.NotificationsUpdater()
+	messageFinder := config.Services.MessageFinder()
 
-	logging := mother.Logging()
+	logging := config.Logging
 	errorWriter := handlers.NewErrorWriter()
-	database := mother.Database()
-	cors := mother.CORS()
+	database := config.Database
+	cors := config.CORS
+	authenticator := config.Authenticator
+	strategies := config.Strategies
 
 	notificationsWriteAuthenticator := authenticator("notifications.write")
 	notificationsManageAuthenticator := authenticator("notifications.manage")

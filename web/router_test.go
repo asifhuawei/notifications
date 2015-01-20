@@ -15,7 +15,18 @@ var _ = Describe("Router", func() {
 	var router web.Router
 
 	BeforeEach(func() {
-		router = web.NewRouter(fakes.NewMother(), fakes.NewMother(), fakes.NewStrategyFactory(), fakes.NewMother().Authenticator)
+
+		config := web.RouterConfig{
+			Database: fakes.NewDatabase(),
+			Logging:  stack.Logging{},
+			CORS:     middleware.CORS{},
+			Authenticator: func(scopes ...string) middleware.Authenticator {
+				return middleware.Authenticator{Scopes: scopes}
+			},
+			Strategies: fakes.NewStrategyFactory(),
+			Services:   fakes.NewServicesFactory(),
+		}
+		router = web.NewRouter(config)
 	})
 
 	It("routes GET /info", func() {
