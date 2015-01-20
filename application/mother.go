@@ -23,10 +23,13 @@ import (
 type Mother struct {
 	logger *log.Logger
 	queue  *gobble.Queue
+	env    Environment
 }
 
-func NewMother() *Mother {
-	return &Mother{}
+func NewMother(env Environment) *Mother {
+	return &Mother{
+		env: env,
+	}
 }
 
 func (mother *Mother) Logger() *log.Logger {
@@ -37,10 +40,9 @@ func (mother *Mother) Logger() *log.Logger {
 }
 
 func (mother *Mother) Queue() gobble.QueueInterface {
-	env := NewEnvironment()
 	if mother.queue == nil {
 		mother.queue = gobble.NewQueue(gobble.Config{
-			WaitMaxDuration: time.Duration(env.GobbleWaitMaxDuration) * time.Millisecond,
+			WaitMaxDuration: time.Duration(mother.env.GobbleWaitMaxDuration) * time.Millisecond,
 		})
 	}
 
@@ -48,7 +50,7 @@ func (mother *Mother) Queue() gobble.QueueInterface {
 }
 
 func (mother Mother) UAAClient() uaa.UAA {
-	env := NewEnvironment()
+	env := mother.env
 	uaaClient := uaa.NewUAA("", env.UAAHost, env.UAAClientID, env.UAAClientSecret, "")
 	uaaClient.VerifySSL = env.VerifySSL
 
@@ -67,7 +69,7 @@ func (mother Mother) RouterConfig() web.RouterConfig {
 }
 
 func (mother Mother) StrategyFactory() StrategyFactory {
-	env := NewEnvironment()
+	env := mother.env
 	templatesLoader := mother.ServicesFactory().TemplatesLoader()
 	mailer := mother.Mailer()
 	logger := mother.Logger()
@@ -83,7 +85,7 @@ func (mother Mother) ServicesFactory() ServicesFactory {
 }
 
 func (mother Mother) DeliveryWorker(id int) postal.DeliveryWorker {
-	env := NewEnvironment()
+	env := mother.env
 	return postal.NewDeliveryWorker(id, mother.Logger(), mother.MailClient(), mother.Queue(),
 		models.NewGlobalUnsubscribesRepo(), models.NewUnsubscribesRepo(), models.NewKindsRepo(), models.NewMessagesRepo(),
 		mother.Database(), env.Sender, env.EncryptionKey)
@@ -94,7 +96,7 @@ func (mother Mother) Mailer() strategies.Mailer {
 }
 
 func (mother Mother) MailClient() *mail.Client {
-	env := NewEnvironment()
+	env := mother.env
 	mailConfig := mail.Config{
 		User:           env.SMTPUser,
 		Pass:           env.SMTPPass,
@@ -133,7 +135,7 @@ func (mother Mother) Authenticator(scopes ...string) middleware.Authenticator {
 }
 
 func (mother Mother) Database() models.DatabaseInterface {
-	env := NewEnvironment()
+	env := mother.env
 	return models.NewDatabase(models.Config{
 		DatabaseURL:         env.DatabaseURL,
 		MigrationsPath:      env.ModelMigrationsDir,
@@ -142,6 +144,5 @@ func (mother Mother) Database() models.DatabaseInterface {
 }
 
 func (mother Mother) CORS() middleware.CORS {
-	env := NewEnvironment()
-	return middleware.NewCORS(env.CORSOrigin)
+	return middleware.NewCORS(mother.env.CORSOrigin)
 }

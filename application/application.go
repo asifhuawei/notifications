@@ -20,8 +20,8 @@ type Application struct {
 }
 
 func NewApplication() Application {
-	mother := NewMother()
 	env := NewEnvironment()
+	mother := NewMother(env)
 
 	return Application{
 		env:      env,
