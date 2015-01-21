@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cloudfoundry-incubator/notifications/models"
+	"github.com/cloudfoundry-incubator/notifications/postal"
 	"github.com/cloudfoundry-incubator/notifications/web"
+
 	"github.com/pivotal-cf/uaa-sso-golang/uaa"
 	"github.com/ryanmoran/viron"
 )
@@ -110,7 +113,7 @@ func (app Application) StartWorkers() {
 func (app Application) StartMessageGC() {
 	messageLifetime := 24 * time.Hour
 	db := app.mother.Database()
-	messagesRepo := app.mother.MessagesRepo()
+	messagesRepo := models.NewMessagesRepo()
 	pollingInterval := 1 * time.Hour
 	logger := app.mother.Logger()
 	messageGC := postal.NewMessageGC(messageLifetime, db, messagesRepo, pollingInterval, logger)
